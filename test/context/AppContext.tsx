@@ -3,6 +3,7 @@ import { UserRole, Quiz, QuizSubmission, Branch, User, Student, Teacher, Parent,
 import { NAV_LINKS, MANAGEMENT_CONFIG, SUBSCRIPTION_PACKAGES, SUBSCRIPTION_ADDONS } from '../constants';
 import { SEED_INSTITUTES, SEED_BRANCHES, SEED_CLASSES, SEED_SUBJECTS, SEED_USERS, SEED_TEACHERS, SEED_STUDENTS, SEED_SCHEDULE_EVENTS, SEED_LEADS, SEED_FEE_STRUCTURES, SEED_DISCOUNTS, SEED_STUDENT_FEE_PROFILES, SEED_FEE_RECEIPTS, SEED_VERSION, SEED_LINKED_CHILDREN, SEED_PERSONAL_AI_CONFIGS, SEED_SAVED_AI_CONTENT, SEED_ACTIVITY_SESSIONS, SEED_AI_PROGRESS_REPORTS, SEED_PARENT_PLANS, SEED_PARENT_SUBSCRIPTIONS, SEED_ROLE_CONFIGS, SEED_EXTERNAL_PARENTS, SEED_EXTERNAL_CHILDREN, SEED_EXTERNAL_STUDENTS, SEED_STUDENT_PLANS, SEED_STUDENT_SUBSCRIPTIONS, SEED_STUDY_CHALLENGES, SEED_CHALLENGE_PARTICIPATIONS, SEED_SHARED_CONTENT } from '../data/seedData';
 import { generateSchedule, generateGameLevels } from '../services/apiClient';
+import { apiListChildren, apiGetAiConfig, apiListAiContent } from '../services/externalDataApi';
 import { format, add } from 'date-fns';
 
 const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -1060,6 +1061,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subscriptionExpiry: u.subscription_expiry ?? undefined,
     });
 
+    const mapChildFromApi = (c: any): ExternalChildProfile => ({
+        id: c.id, parentId: c.parent_id, name: c.name, grade: c.grade, age: c.age,
+        subjectsOfInterest: c.subjects_of_interest ?? [], schoolName: c.school_name ?? undefined,
+        city: c.city ?? undefined, linkedExternalStudentId: c.linked_external_student_id ?? undefined,
+        createdAt: (c.created_at ?? '').split('T')[0] || new Date().toISOString().split('T')[0],
+        avatar: c.avatar ?? undefined,
+    });
+
+    const mapAiConfigFromApi = (c: any): PersonalAiConfig => ({
+        id: c.id, ownerId: c.owner_id, ownerRole: c.owner_role,
+        activeProvider: c.active_provider, geminiApiKey: c.gemini_api_key ?? undefined,
+        openaiApiKey: c.openai_api_key ?? undefined, anthropicApiKey: c.anthropic_api_key ?? undefined,
+        groqApiKey: c.groq_api_key ?? undefined, customApiKey: c.custom_api_key ?? undefined,
+        customApiUrl: c.custom_api_url ?? undefined, customModelName: c.custom_model_name ?? undefined,
+        createdAt: c.created_at, updatedAt: c.updated_at,
+    });
+
+    const mapAiContentFromApi = (c: any): SavedAiContent => ({
+        id: c.id, ownerId: c.owner_id, ownerRole: 'Student', contentType: c.content_type,
+        title: c.title, topic: c.topic, subjectName: c.subject_name, className: c.class_name,
+        content: c.content, generatedAt: (c.generated_at ?? '').split('T')[0] || c.generated_at,
+        isSharedWithParent: c.is_shared_with_parent, aiProvider: c.ai_provider,
+    });
+
+    // Best-effort hydration from the backend after login/register — replaces
+    // matching local entries if the backend is reachable, otherwise the
+    // existing localStorage cache (seed data or prior session) is left as-is.
+    const hydrateExternalData = useCallback(async (ownerId: string, kind: 'parent' | 'student') => {
+        if (kind === 'parent') {
+            const children = await apiListChildren();
+            if (children) setExternalChildren(prev => [...prev.filter(c => c.parentId !== ownerId), ...children.map(mapChildFromApi)]);
+        } else {
+            const content = await apiListAiContent();
+            if (content) setSavedAiContent(prev => [...prev.filter(c => c.ownerId !== ownerId), ...content.map(mapAiContentFromApi)]);
+        }
+        const config = await apiGetAiConfig();
+        if (config) setPersonalAiConfigs(prev => [...prev.filter(c => c.ownerId !== ownerId), mapAiConfigFromApi(config)]);
+    }, []);
+
     const loginExternal = useCallback(async (email: string, password: string): Promise<'parent' | 'student' | false> => {
         try {
             const res = await fetch(`${PYTHON_API}/api/external/login`, {
@@ -1082,6 +1122,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsAuthenticated(true);
                 setActiveView('dashboard');
                 setShowLoginPage(false);
+                hydrateExternalData(ep.id, 'parent');
                 return 'parent';
             }
             const es = mapExternalStudentFromApi(data.user);
@@ -1094,11 +1135,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsAuthenticated(true);
             setActiveView('dashboard');
             setShowLoginPage(false);
+            hydrateExternalData(es.id, 'student');
             return 'student';
         } catch {
             return false; // backend unreachable — no plaintext local fallback for external roles
         }
-    }, []);
+    }, [hydrateExternalData]);
 
     const registerExternalParent = useCallback(async (data: { name: string; email: string; password: string; mobile: string; city?: string }): Promise<boolean> => {
         const rc = roleConfigs.find(rc => rc.role === UserRole.ExternalParent);

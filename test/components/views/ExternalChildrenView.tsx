@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { ExternalChildProfile } from '../../types';
+import { apiCreateChild, apiUpdateChild, apiDeleteChild } from '../../services/externalDataApi';
 
 const GRADE_OPTIONS = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9','Grade 10','Grade 11','Grade 12'];
 const SUBJECT_OPTIONS = ['Mathematics','Physics','Chemistry','Biology','English','Hindi','History','Geography','Civics','Economics','Computer Science','Social Science','Sanskrit','French','German'];
@@ -30,7 +31,7 @@ const ExternalChildrenView: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.grade) return;
     const child: ExternalChildProfile = {
       id:                  editing?.id ?? `ext_child_${Date.now()}`,
@@ -47,10 +48,20 @@ const ExternalChildrenView: React.FC = () => {
       ? prev.map(c => c.id === editing.id ? child : c)
       : [...prev, child]);
     setShowForm(false);
+
+    // Best-effort backend sync — local state above already updated.
+    const payload = {
+      name: child.name, grade: child.grade, age: child.age,
+      subjects_of_interest: child.subjectsOfInterest,
+      school_name: child.schoolName ?? null, city: child.city ?? null,
+    };
+    if (editing) apiUpdateChild(editing.id, payload);
+    else apiCreateChild(payload);
   };
 
   const handleRemove = (id: string) => {
     setExternalChildren(prev => prev.filter(c => c.id !== id));
+    apiDeleteChild(id);
   };
 
   const toggleSubject = (subj: string) => {

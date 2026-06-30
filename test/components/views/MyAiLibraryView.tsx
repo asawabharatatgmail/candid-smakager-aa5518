@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { SavedAiContent, AiContentType } from '../../types';
+import { apiDeleteAiContent } from '../../services/externalDataApi';
 
 const TYPE_COLORS: Record<AiContentType, string> = {
   quiz:          'bg-blue-100 text-blue-700',
@@ -136,6 +137,7 @@ const MyAiLibraryView: React.FC = () => {
 
   const handleDelete = (id: string) => {
     setSavedAiContent(prev => prev.filter(c => c.id !== id));
+    apiDeleteAiContent(id);
   };
 
   return (

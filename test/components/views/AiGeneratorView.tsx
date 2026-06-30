@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { SavedAiContent, AiContentType, AiProvider } from '../../types';
+import { apiCreateAiContent, apiLogActivity } from '../../services/externalDataApi';
 
 const CONTENT_TYPES: { id: AiContentType; label: string; desc: string; icon: string }[] = [
   { id: 'quiz',          label: 'Quiz (MCQ)',       desc: 'Multiple-choice questions to test knowledge', icon: '📝' },
@@ -89,6 +90,13 @@ const AiGeneratorView: React.FC = () => {
   const handleSave = () => {
     if (!result) return;
     setSavedAiContent(prev => [result, ...prev]);
+    // Best-effort backend sync — local state above already updated.
+    apiCreateAiContent({
+      content_type: result.contentType, title: result.title, topic: result.topic,
+      subject_name: result.subjectName, class_name: result.className,
+      content: result.content, is_shared_with_parent: result.isSharedWithParent,
+      ai_provider: result.aiProvider,
+    });
     // Log activity
     const session = {
       id: `act_${Date.now()}`,
@@ -100,6 +108,10 @@ const AiGeneratorView: React.FC = () => {
       contentTitle: result.title,
     };
     setActivitySessions(prev => [session, ...prev]);
+    apiLogActivity({
+      date: session.date, duration_minutes: session.durationMinutes, activity: session.activity,
+      subject_id: session.subjectId || null, content_title: session.contentTitle,
+    });
     setResult(null);
     setTopic('');
   };

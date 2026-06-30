@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { PersonalAiConfig, AiProvider } from '../../types';
+import { PersonalAiConfig, AiProvider, UserRole } from '../../types';
+import { apiUpsertAiConfig } from '../../services/externalDataApi';
 
 const PROVIDERS: { id: AiProvider; label: string; logo: string; keyLabel: string; placeholder: string; docsUrl: string }[] = [
   { id: 'gemini',    label: 'Google Gemini',  logo: '🔵', keyLabel: 'Gemini API Key',    placeholder: 'AIzaSy...', docsUrl: 'https://aistudio.google.com/app/apikey' },
@@ -11,8 +12,10 @@ const PROVIDERS: { id: AiProvider; label: string; logo: string; keyLabel: string
 ];
 
 const PersonalAiConfigView: React.FC = () => {
-  const { personalAiConfigs, setPersonalAiConfigs, currentUser } = useAppContext();
+  const { personalAiConfigs, setPersonalAiConfigs, currentUser, currentRole } = useAppContext();
   const myConfig = personalAiConfigs.find(c => c.ownerId === currentUser?.id);
+  const ownerRole: 'Student' | 'Parent' =
+    currentRole === UserRole.Student || currentRole === UserRole.ExternalStudent ? 'Student' : 'Parent';
 
   const [selectedProvider, setSelectedProvider] = useState<AiProvider>(myConfig?.activeProvider ?? 'gemini');
   const [keys, setKeys] = useState<Partial<Record<string, string>>>({
@@ -27,12 +30,12 @@ const PersonalAiConfigView: React.FC = () => {
   const [showKey, setShowKey]       = useState(false);
   const [saved, setSaved]           = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const now = new Date().toISOString().split('T')[0];
     const updated: PersonalAiConfig = {
       id:             myConfig?.id ?? `pai_${Date.now()}`,
       ownerId:        currentUser!.id,
-      ownerRole:      (currentUser?.role === 'Student' ? 'Student' : 'Parent') as 'Student' | 'Parent',
+      ownerRole,
       activeProvider: selectedProvider,
       geminiApiKey:   keys['gemini'],
       openaiApiKey:   keys['openai'],
@@ -49,6 +52,20 @@ const PersonalAiConfigView: React.FC = () => {
       : [...prev, updated]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+
+    // Best-effort sync to backend — local state above is already updated,
+    // so this never blocks the UI; localStorage remains the offline cache.
+    apiUpsertAiConfig({
+      owner_role: ownerRole,
+      active_provider: selectedProvider,
+      gemini_api_key: keys['gemini'] || null,
+      openai_api_key: keys['openai'] || null,
+      anthropic_api_key: keys['anthropic'] || null,
+      groq_api_key: keys['groq'] || null,
+      custom_api_key: keys['custom'] || null,
+      custom_api_url: customUrl || null,
+      custom_model_name: customModel || null,
+    });
   };
 
   const providerInfo = PROVIDERS.find(p => p.id === selectedProvider)!;
