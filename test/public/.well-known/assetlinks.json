@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.system4learn.app",
+        "sha256_cert_fingerprints": ["6F:4D:8E:C5:06:C4:97:1F:05:AC:DE:FE:80:A8:84:2D:DC:FE:A0:B9:01:AC:C0:11:9D:7C:90:6B:98:9C:37:32"]
+      }
+    }]

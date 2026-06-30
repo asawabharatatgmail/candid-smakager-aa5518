@@ -1,0 +1,11 @@
+[build]
+  publish = "dist"
+  command = "node node_modules/vite/bin/vite.js build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "20"
