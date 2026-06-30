@@ -87,6 +87,18 @@ class StudentCreate(BaseModel):
     status: Optional[str] = "active"
 
 
+class StudentUpdate(BaseModel):
+    name: Optional[str] = None
+    mobile: Optional[str] = None
+    class_id: Optional[str] = None
+    branch_ids: Optional[List[str]] = None
+    subject_ids: Optional[List[str]] = None
+    parent_name: Optional[str] = None
+    parent_email: Optional[str] = None
+    parent_mobile: Optional[str] = None
+    status: Optional[str] = None
+
+
 @student_router.get("/")
 async def list_students(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     iid = institute_id or current_user.get("institute_id")
@@ -116,6 +128,15 @@ async def get_student(student_id: str, current_user: dict = Depends(get_current_
     return {k: v for k, v in result.data.items() if k != "password_hash"}
 
 
+@student_router.put("/{student_id}")
+async def update_student(student_id: str, data: StudentUpdate, current_user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = supabase.table("students").update(update_data).eq("id", student_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {k: v for k, v in result.data[0].items() if k != "password_hash"}
+
+
 @student_router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_student(student_id: str, current_user: dict = Depends(get_current_user)):
     supabase.table("students").delete().eq("id", student_id).execute()
@@ -138,6 +159,15 @@ class TeacherCreate(BaseModel):
     status: Optional[str] = "active"
 
 
+class TeacherUpdate(BaseModel):
+    name: Optional[str] = None
+    mobile: Optional[str] = None
+    subject_ids: Optional[List[str]] = None
+    class_ids: Optional[List[str]] = None
+    branch_ids: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
 @teacher_router.get("/")
 async def list_teachers(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     iid = institute_id or current_user.get("institute_id")
@@ -155,6 +185,15 @@ async def create_teacher(data: TeacherCreate, current_user: dict = Depends(get_c
     }).execute()
     row = result.data[0]
     return {k: v for k, v in row.items() if k != "password_hash"}
+
+
+@teacher_router.put("/{teacher_id}")
+async def update_teacher(teacher_id: str, data: TeacherUpdate, current_user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = supabase.table("teachers").update(update_data).eq("id", teacher_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    return {k: v for k, v in result.data[0].items() if k != "password_hash"}
 
 
 @teacher_router.delete("/{teacher_id}", status_code=status.HTTP_204_NO_CONTENT)

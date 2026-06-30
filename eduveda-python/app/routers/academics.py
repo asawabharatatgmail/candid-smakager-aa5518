@@ -18,6 +18,12 @@ class BranchCreate(BaseModel):
     institute_id: str
 
 
+class BranchUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    head: Optional[str] = None
+
+
 @branch_router.get("/")
 async def list_branches(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     iid = institute_id or current_user.get("institute_id")
@@ -27,6 +33,15 @@ async def list_branches(institute_id: Optional[str] = None, current_user: dict =
 @branch_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_branch(data: BranchCreate, current_user: dict = Depends(get_current_user)):
     result = supabase.table("branches").insert(data.model_dump()).execute()
+    return result.data[0]
+
+
+@branch_router.put("/{branch_id}")
+async def update_branch(branch_id: str, data: BranchUpdate, current_user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = supabase.table("branches").update(update_data).eq("id", branch_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Branch not found")
     return result.data[0]
 
 
@@ -44,6 +59,12 @@ class ClassCreate(BaseModel):
     institute_id: str
 
 
+class ClassUpdate(BaseModel):
+    name: Optional[str] = None
+    teacher_ids: Optional[List[str]] = None
+    student_ids: Optional[List[str]] = None
+
+
 @class_router.get("/")
 async def list_classes(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     iid = institute_id or current_user.get("institute_id")
@@ -53,6 +74,15 @@ async def list_classes(institute_id: Optional[str] = None, current_user: dict = 
 @class_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_class(data: ClassCreate, current_user: dict = Depends(get_current_user)):
     return supabase.table("academic_classes").insert(data.model_dump()).execute().data[0]
+
+
+@class_router.put("/{class_id}")
+async def update_class(class_id: str, data: ClassUpdate, current_user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = supabase.table("academic_classes").update(update_data).eq("id", class_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return result.data[0]
 
 
 @class_router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -70,6 +100,11 @@ class SubjectCreate(BaseModel):
     institute_id: str
 
 
+class SubjectUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+
+
 @subject_router.get("/")
 async def list_subjects(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     iid = institute_id or current_user.get("institute_id")
@@ -79,6 +114,15 @@ async def list_subjects(institute_id: Optional[str] = None, current_user: dict =
 @subject_router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_subject(data: SubjectCreate, current_user: dict = Depends(get_current_user)):
     return supabase.table("subjects").insert(data.model_dump()).execute().data[0]
+
+
+@subject_router.put("/{subject_id}")
+async def update_subject(subject_id: str, data: SubjectUpdate, current_user: dict = Depends(get_current_user)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    result = supabase.table("subjects").update(update_data).eq("id", subject_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return result.data[0]
 
 
 @subject_router.delete("/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)

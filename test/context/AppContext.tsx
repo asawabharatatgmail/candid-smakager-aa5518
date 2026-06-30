@@ -4,6 +4,7 @@ import { NAV_LINKS, MANAGEMENT_CONFIG, SUBSCRIPTION_PACKAGES, SUBSCRIPTION_ADDON
 import { SEED_INSTITUTES, SEED_BRANCHES, SEED_CLASSES, SEED_SUBJECTS, SEED_USERS, SEED_TEACHERS, SEED_STUDENTS, SEED_SCHEDULE_EVENTS, SEED_LEADS, SEED_FEE_STRUCTURES, SEED_DISCOUNTS, SEED_STUDENT_FEE_PROFILES, SEED_FEE_RECEIPTS, SEED_VERSION, SEED_LINKED_CHILDREN, SEED_PERSONAL_AI_CONFIGS, SEED_SAVED_AI_CONTENT, SEED_ACTIVITY_SESSIONS, SEED_AI_PROGRESS_REPORTS, SEED_PARENT_PLANS, SEED_PARENT_SUBSCRIPTIONS, SEED_ROLE_CONFIGS, SEED_EXTERNAL_PARENTS, SEED_EXTERNAL_CHILDREN, SEED_EXTERNAL_STUDENTS, SEED_STUDENT_PLANS, SEED_STUDENT_SUBSCRIPTIONS, SEED_STUDY_CHALLENGES, SEED_CHALLENGE_PARTICIPATIONS, SEED_SHARED_CONTENT } from '../data/seedData';
 import { generateSchedule, generateGameLevels } from '../services/apiClient';
 import { apiListChildren, apiGetAiConfig, apiListAiContent } from '../services/externalDataApi';
+import { apiCreateInstituteRecord, apiUpdateInstituteRecord, apiDeleteInstituteRecord, apiListInstituteRecords, isSyncableCategory } from '../services/institutionApi';
 import { format, add } from 'date-fns';
 
 const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -967,6 +968,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setActiveView('dashboard');
                     setShowLoginPage(false);
                     setOriginalUser(null);
+                    if (backendUser.instituteId) hydrateInstituteData(backendUser.instituteId);
                     return true;
                 }
             } catch (_) {
@@ -1030,6 +1032,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return false;
+    // Note: hydrateInstituteData is intentionally NOT in this dependency
+    // array — it's declared later in this file, so including it here would
+    // evaluate a temporal-dead-zone reference on every render and crash.
+    // It's referenced inside the function body only, which is safe: by the
+    // time `login` is actually invoked (a user action), hydrateInstituteData
+    // has already been initialized during the render pass, and its own
+    // deps array is `[]` so its identity never changes anyway.
     }, [institutes, users, teachers, students]);
     
     // ── External login (completely separate from institute system) ───────────
@@ -1098,6 +1107,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         const config = await apiGetAiConfig();
         if (config) setPersonalAiConfigs(prev => [...prev.filter(c => c.ownerId !== ownerId), mapAiConfigFromApi(config)]);
+    }, []);
+
+    // Best-effort hydration of core institute data after a real (non-demo)
+    // institute login — replaces matching local entries if the backend is
+    // reachable, otherwise the existing localStorage cache (seed data or
+    // prior session) is left as-is. Mirrors hydrateExternalData's pattern.
+    const hydrateInstituteData = useCallback(async (instituteId: string) => {
+        const [branchesRes, studentsRes, teachersRes, classesRes, subjectsRes] = await Promise.all([
+            apiListInstituteRecords('branches', instituteId),
+            apiListInstituteRecords('students', instituteId),
+            apiListInstituteRecords('teachers', instituteId),
+            apiListInstituteRecords('classes', instituteId),
+            apiListInstituteRecords('subjects', instituteId),
+        ]);
+        if (branchesRes) setBranches(prev => [...prev.filter(b => b.instituteId !== instituteId), ...branchesRes.map((b: any): Branch => ({
+            id: b.id, name: b.name, location: b.location, head: b.head, instituteId: b.institute_id,
+        }))]);
+        if (studentsRes) setStudents(prev => [...prev.filter(s => s.instituteId !== instituteId), ...studentsRes.map((s: any): Student => ({
+            id: s.id, name: s.name, email: s.email, mobile: s.mobile, classId: s.class_id ?? '',
+            branchIds: s.branch_ids ?? [], subjectIds: s.subject_ids ?? [], status: s.status,
+            parentName: s.parent_name ?? '', parentEmail: s.parent_email ?? '', parentMobile: s.parent_mobile ?? '',
+            role: UserRole.Student, instituteId: s.institute_id ?? instituteId,
+        }))]);
+        if (teachersRes) setTeachers(prev => [...prev.filter(t => t.instituteId !== instituteId), ...teachersRes.map((t: any): Teacher => ({
+            id: t.id, name: t.name, email: t.email, mobile: t.mobile,
+            subjectIds: t.subject_ids ?? [], classIds: t.class_ids ?? [], branchIds: t.branch_ids ?? [],
+            status: t.status, role: UserRole.Teacher, instituteId: instituteId,
+        }))]);
+        if (classesRes) setClasses(prev => [...prev.filter(c => c.instituteId !== instituteId), ...classesRes.map((c: any): AcademicClass => ({
+            id: c.id, name: c.name, teacherIds: c.teacher_ids ?? [], studentIds: c.student_ids ?? [], instituteId: c.institute_id,
+        }))]);
+        if (subjectsRes) setSubjects(prev => [...prev.filter(s => s.instituteId !== instituteId), ...subjectsRes.map((s: any): Subject => ({
+            id: s.id, name: s.name, category: s.category, instituteId: s.institute_id,
+        }))]);
     }, []);
 
     const loginExternal = useCallback(async (email: string, password: string): Promise<'parent' | 'student' | false> => {
@@ -1357,31 +1400,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const [, setStore] = dataStores[category as ContextSource];
-        
+
         if (category === 'students') {
             if (students.length >= currentSubscription.maxStudents) {
                 alert(`Cannot add new student. The license limit of ${currentSubscription.maxStudents} has been reached.`);
                 return;
             }
         }
-        
-        setStore(prevStore => {
-            const roleData: Partial<{ role: UserRole }> = {};
-            if (category === 'students') {
-                roleData.role = UserRole.Student;
-            } else if (category === 'teachers') {
-                roleData.role = UserRole.Teacher;
-            }
 
-            const newRecord = {
-                ...record,
-                ...roleData,
-                id: `${category.slice(0, 3)}_${Date.now()}`,
-                status: 'active' as Status,
-                instituteId: activeInstitute?.id,
-            };
-            return [...prevStore, newRecord];
-        });
+        const roleData: Partial<{ role: UserRole }> = {};
+        if (category === 'students') {
+            roleData.role = UserRole.Student;
+        } else if (category === 'teachers') {
+            roleData.role = UserRole.Teacher;
+        }
+
+        const newRecord = {
+            ...record,
+            ...roleData,
+            id: `${category.slice(0, 3)}_${Date.now()}`,
+            status: 'active' as Status,
+            instituteId: activeInstitute?.id,
+        };
+        setStore(prevStore => [...prevStore, newRecord]);
+
+        // Best-effort backend sync — local state above already updated.
+        if (isSyncableCategory(category) && activeInstitute?.id) {
+            apiCreateInstituteRecord(category, newRecord, activeInstitute.id);
+        }
     }, [dataStores, activeInstitute, students.length, currentSubscription, setInstitutes, setUsers]);
 
     const addBulkRecords = useCallback((category: ManagementCategory, data: any[]) => {
@@ -1442,11 +1488,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updateRecord = useCallback((category: ManagementCategory, id: string, updatedRecord: any) => {
         const [, setStore] = dataStores[category as ContextSource];
         setStore(prevStore => prevStore.map(item => item.id === id ? { ...item, ...updatedRecord } : item));
+
+        // Best-effort backend sync — local state above already updated.
+        // (Records created locally this session and not yet hydrated with a
+        // real backend UUID will fail soft here — same known limitation as
+        // Phase 2a's external data sync.)
+        if (isSyncableCategory(category)) {
+            apiUpdateInstituteRecord(category, id, updatedRecord);
+        }
     }, [dataStores]);
 
     const deleteRecord = useCallback((category: ManagementCategory, id: string) => {
         const [, setStore] = dataStores[category as ContextSource];
         setStore(prevStore => prevStore.filter(item => item.id !== id));
+
+        if (isSyncableCategory(category)) {
+            apiDeleteInstituteRecord(category, id);
+        }
     }, [dataStores]);
     
     // LMS & Library
