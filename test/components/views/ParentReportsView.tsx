@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useAppContext } from '../../context/AppContext';
 import { AiProgressReport } from '../../types';
 
@@ -208,8 +209,9 @@ const ParentReportsView: React.FC = () => {
                     <span className="ml-auto">Overall: <strong className={existingReport.overallScore >= 70 ? 'text-green-600' : 'text-orange-600'}>{existingReport.overallScore}%</strong></span>
                   </div>
 
-                  <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 leading-relaxed border border-slate-200"
-                    dangerouslySetInnerHTML={{ __html: existingReport.summary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                  <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 leading-relaxed border border-slate-200 prose prose-sm max-w-none">
+                    <ReactMarkdown>{existingReport.summary}</ReactMarkdown>
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-4">
