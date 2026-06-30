@@ -39,8 +39,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    # Try users table first, then students, teachers, parents
-    for table in ["users", "students", "teachers", "parents"]:
+    # Try institute tables first, then standalone external tables
+    for table in ["users", "students", "teachers", "parents", "external_parents", "external_students"]:
         result = supabase.table(table).select("*").eq("id", user_id).maybe_single().execute()
         if result.data:
             return {**result.data, "_table": table}

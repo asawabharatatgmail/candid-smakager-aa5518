@@ -10,6 +10,7 @@ from .routers.leads import router as leads_router
 from .routers.gamification import router as gamification_router
 from .routers.marketing import router as marketing_router
 from .routers.ai import router as ai_router
+from .routers.external import router as external_router
 
 app = FastAPI(
     title="EduVeda API",
@@ -43,6 +44,7 @@ app.include_router(leads_router)
 app.include_router(gamification_router)
 app.include_router(marketing_router)
 app.include_router(ai_router)
+app.include_router(external_router)
 
 
 @app.get("/health")

@@ -71,36 +71,39 @@ const LoginPage: React.FC = () => {
   };
 
   // ── External login ──
-  const handleExtLogin = () => {
+  const handleExtLogin = async () => {
     if (!extEmail || !extPwd) return;
     setExtError(''); setExtLoading(true);
-    setTimeout(() => {
-      const result = loginExternal(extEmail, extPwd);
+    try {
+      const result = await loginExternal(extEmail, extPwd);
+      if (!result) setExtError('Invalid email or password, or the server is unreachable. Please try again.');
+    } finally {
       setExtLoading(false);
-      if (!result) setExtError('Invalid email or password. Please try again.');
-    }, 600);
+    }
   };
 
   // ── External register (parent) ──
-  const handleRegParent = () => {
+  const handleRegParent = async () => {
     if (!regName || !extEmail || !extPwd || !regMobile) { setExtError('Please fill all required fields.'); return; }
     setExtError(''); setExtLoading(true);
-    setTimeout(() => {
-      const ok = registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
+    try {
+      const ok = await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
+      if (!ok) setExtError('An account with this email already exists, or the server is unreachable.');
+    } finally {
       setExtLoading(false);
-      if (!ok) setExtError('An account with this email already exists.');
-    }, 800);
+    }
   };
 
   // ── External register (student) ──
-  const handleRegStudent = () => {
+  const handleRegStudent = async () => {
     if (!regName || !extEmail || !extPwd) { setExtError('Please fill all required fields.'); return; }
     setExtError(''); setExtLoading(true);
-    setTimeout(() => {
-      const ok = registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
+    try {
+      const ok = await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
+      if (!ok) setExtError('An account with this email already exists, or the server is unreachable.');
+    } finally {
       setExtLoading(false);
-      if (!ok) setExtError('An account with this email already exists.');
-    }, 800);
+    }
   };
 
   // ── Tab config ──

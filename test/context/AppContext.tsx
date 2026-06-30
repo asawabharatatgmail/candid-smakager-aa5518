@@ -331,9 +331,9 @@ interface AppContextType {
   setExternalStudents: React.Dispatch<React.SetStateAction<ExternalStudent[]>>;
   externalParentSession: ExternalParent | null;
   externalStudentSession: ExternalStudent | null;
-  loginExternal: (email: string, password: string) => 'parent' | 'student' | false;
-  registerExternalParent: (data: { name: string; email: string; password: string; mobile: string; city?: string }) => boolean;
-  registerExternalStudent: (data: { name: string; email: string; password: string; mobile?: string; grade: string; age: number; subjectsOfInterest: string[]; schoolName?: string; city?: string }) => boolean;
+  loginExternal: (email: string, password: string) => Promise<'parent' | 'student' | false>;
+  registerExternalParent: (data: { name: string; email: string; password: string; mobile: string; city?: string }) => Promise<boolean>;
+  registerExternalStudent: (data: { name: string; email: string; password: string; mobile?: string; grade: string; age: number; subjectsOfInterest: string[]; schoolName?: string; city?: string }) => Promise<boolean>;
   studentPlans: StudentPlan[];
   setStudentPlans: React.Dispatch<React.SetStateAction<StudentPlan[]>>;
   studentSubscriptions: StudentSubscription[];
@@ -1032,21 +1032,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [institutes, users, teachers, students]);
     
     // ── External login (completely separate from institute system) ───────────
-    const loginExternal = useCallback((email: string, password: string): 'parent' | 'student' | false => {
-        const ep = externalParents.find(p => p.email.toLowerCase() === email.toLowerCase() && p.password === password && p.isActive);
-        if (ep) {
-            setExternalParentSession(ep);
-            setExternalStudentSession(null);
-            setCurrentUser({ id: ep.id, name: ep.name, email: ep.email, mobile: ep.mobile, role: ep.role, status: 'active' as const, instituteId: '' });
-            setCurrentRole(UserRole.ExternalParent);
-            setActiveInstituteId(null);
-            setIsAuthenticated(true);
-            setActiveView('dashboard');
-            setShowLoginPage(false);
-            return 'parent';
-        }
-        const es = externalStudents.find(s => s.email.toLowerCase() === email.toLowerCase() && s.password === password && s.isActive);
-        if (es) {
+    // ── External auth now calls the real FastAPI backend (bcrypt + JWT) ──────
+    // instead of comparing plaintext passwords in the browser. The returned
+    // profile is mirrored into local state so already-built UI (Role Manager
+    // subscriber counts, child management, etc.) keeps working unchanged —
+    // those data flows move to the backend in a later phase.
+    const mapExternalParentFromApi = (u: any): ExternalParent => ({
+        id: u.id, name: u.name, email: u.email, password: '', mobile: u.mobile,
+        role: UserRole.ExternalParent, city: u.city ?? undefined,
+        createdAt: (u.created_at ?? '').split('T')[0] || new Date().toISOString().split('T')[0],
+        isActive: u.status !== 'inactive',
+        planId: u.plan_id ?? undefined,
+        subscriptionStatus: (u.subscription_status ?? 'none') as ExternalParent['subscriptionStatus'],
+        subscriptionExpiry: u.subscription_expiry ?? undefined,
+    });
+
+    const mapExternalStudentFromApi = (u: any): ExternalStudent => ({
+        id: u.id, name: u.name, email: u.email, password: '', mobile: u.mobile ?? undefined,
+        role: UserRole.ExternalStudent, grade: u.grade, age: u.age,
+        subjectsOfInterest: u.subjects_of_interest ?? [],
+        schoolName: u.school_name ?? undefined, city: u.city ?? undefined,
+        createdAt: (u.created_at ?? '').split('T')[0] || new Date().toISOString().split('T')[0],
+        isActive: u.status !== 'inactive',
+        linkedParentId: u.linked_parent_id ?? undefined,
+        planId: u.plan_id ?? undefined,
+        subscriptionStatus: (u.subscription_status ?? 'none') as ExternalStudent['subscriptionStatus'],
+        subscriptionExpiry: u.subscription_expiry ?? undefined,
+    });
+
+    const loginExternal = useCallback(async (email: string, password: string): Promise<'parent' | 'student' | false> => {
+        try {
+            const res = await fetch(`${PYTHON_API}/api/external/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+            if (!res.ok) return false;
+            const data = await res.json();
+            localStorage.setItem('eduveda_token', data.access_token);
+
+            if (data.account_type === 'parent') {
+                const ep = mapExternalParentFromApi(data.user);
+                setExternalParents(prev => prev.some(p => p.id === ep.id) ? prev.map(p => p.id === ep.id ? ep : p) : [...prev, ep]);
+                setExternalParentSession(ep);
+                setExternalStudentSession(null);
+                setCurrentUser({ id: ep.id, name: ep.name, email: ep.email, mobile: ep.mobile, role: ep.role, status: 'active' as const, instituteId: '' });
+                setCurrentRole(UserRole.ExternalParent);
+                setActiveInstituteId(null);
+                setIsAuthenticated(true);
+                setActiveView('dashboard');
+                setShowLoginPage(false);
+                return 'parent';
+            }
+            const es = mapExternalStudentFromApi(data.user);
+            setExternalStudents(prev => prev.some(s => s.id === es.id) ? prev.map(s => s.id === es.id ? es : s) : [...prev, es]);
             setExternalStudentSession(es);
             setExternalParentSession(null);
             setCurrentUser({ id: es.id, name: es.name, email: es.email, mobile: es.mobile || '', role: es.role, status: 'active' as const, instituteId: '' });
@@ -1056,56 +1095,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setActiveView('dashboard');
             setShowLoginPage(false);
             return 'student';
+        } catch {
+            return false; // backend unreachable — no plaintext local fallback for external roles
         }
-        return false;
-    }, [externalParents, externalStudents]);
+    }, []);
 
-    const registerExternalParent = useCallback((data: { name: string; email: string; password: string; mobile: string; city?: string }): boolean => {
-        if (externalParents.some(p => p.email.toLowerCase() === data.email.toLowerCase())) return false;
+    const registerExternalParent = useCallback(async (data: { name: string; email: string; password: string; mobile: string; city?: string }): Promise<boolean> => {
         const rc = roleConfigs.find(rc => rc.role === UserRole.ExternalParent);
         if (!rc?.isActive || !rc?.registrationOpen) return false;
-        const ep: ExternalParent = {
-            id: `ext_parent_${Date.now()}`,
-            name: data.name, email: data.email, password: data.password,
-            mobile: data.mobile, role: UserRole.ExternalParent, city: data.city,
-            createdAt: new Date().toISOString().split('T')[0],
-            isActive: true, subscriptionStatus: 'none',
-        };
-        setExternalParents(prev => [...prev, ep]);
-        // Auto-login after register
-        setExternalParentSession(ep);
-        setCurrentUser({ id: ep.id, name: ep.name, email: ep.email, mobile: ep.mobile, role: ep.role, status: 'active' as const, instituteId: '' });
-        setCurrentRole(UserRole.ExternalParent);
-        setActiveInstituteId(null);
-        setIsAuthenticated(true);
-        setActiveView('dashboard');
-        setShowLoginPage(false);
-        return true;
-    }, [externalParents, roleConfigs]);
+        try {
+            const res = await fetch(`${PYTHON_API}/api/external/parent/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: data.name, email: data.email, password: data.password, mobile: data.mobile, city: data.city }),
+            });
+            if (!res.ok) return false;
+            const resp = await res.json();
+            localStorage.setItem('eduveda_token', resp.access_token);
+            const ep = mapExternalParentFromApi(resp.user);
+            setExternalParents(prev => [...prev, ep]);
+            setExternalParentSession(ep);
+            setExternalStudentSession(null);
+            setCurrentUser({ id: ep.id, name: ep.name, email: ep.email, mobile: ep.mobile, role: ep.role, status: 'active' as const, instituteId: '' });
+            setCurrentRole(UserRole.ExternalParent);
+            setActiveInstituteId(null);
+            setIsAuthenticated(true);
+            setActiveView('dashboard');
+            setShowLoginPage(false);
+            return true;
+        } catch {
+            return false;
+        }
+    }, [roleConfigs]);
 
-    const registerExternalStudent = useCallback((data: { name: string; email: string; password: string; mobile?: string; grade: string; age: number; subjectsOfInterest: string[]; schoolName?: string; city?: string }): boolean => {
-        if (externalStudents.some(s => s.email.toLowerCase() === data.email.toLowerCase())) return false;
+    const registerExternalStudent = useCallback(async (data: { name: string; email: string; password: string; mobile?: string; grade: string; age: number; subjectsOfInterest: string[]; schoolName?: string; city?: string }): Promise<boolean> => {
         const rc = roleConfigs.find(rc => rc.role === UserRole.ExternalStudent);
         if (!rc?.isActive || !rc?.registrationOpen) return false;
-        const es: ExternalStudent = {
-            id: `ext_student_${Date.now()}`,
-            name: data.name, email: data.email, password: data.password,
-            mobile: data.mobile, role: UserRole.ExternalStudent,
-            grade: data.grade, age: data.age,
-            subjectsOfInterest: data.subjectsOfInterest,
-            schoolName: data.schoolName, city: data.city,
-            createdAt: new Date().toISOString().split('T')[0], isActive: true,
-        };
-        setExternalStudents(prev => [...prev, es]);
-        setExternalStudentSession(es);
-        setCurrentUser({ id: es.id, name: es.name, email: es.email, mobile: es.mobile || '', role: es.role, status: 'active' as const, instituteId: '' });
-        setCurrentRole(UserRole.ExternalStudent);
-        setActiveInstituteId(null);
-        setIsAuthenticated(true);
-        setActiveView('dashboard');
-        setShowLoginPage(false);
-        return true;
-    }, [externalStudents, roleConfigs]);
+        try {
+            const res = await fetch(`${PYTHON_API}/api/external/student/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: data.name, email: data.email, password: data.password, mobile: data.mobile,
+                    grade: data.grade, age: data.age, subjects_of_interest: data.subjectsOfInterest,
+                    school_name: data.schoolName, city: data.city,
+                }),
+            });
+            if (!res.ok) return false;
+            const resp = await res.json();
+            localStorage.setItem('eduveda_token', resp.access_token);
+            const es = mapExternalStudentFromApi(resp.user);
+            setExternalStudents(prev => [...prev, es]);
+            setExternalStudentSession(es);
+            setExternalParentSession(null);
+            setCurrentUser({ id: es.id, name: es.name, email: es.email, mobile: es.mobile || '', role: es.role, status: 'active' as const, instituteId: '' });
+            setCurrentRole(UserRole.ExternalStudent);
+            setActiveInstituteId(null);
+            setIsAuthenticated(true);
+            setActiveView('dashboard');
+            setShowLoginPage(false);
+            return true;
+        } catch {
+            return false;
+        }
+    }, [roleConfigs]);
 
     const loginAsProductOwner = useCallback(() => {
         const po = users.find(u => u.role === UserRole.ProductOwner);
