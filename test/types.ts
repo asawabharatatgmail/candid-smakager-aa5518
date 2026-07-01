@@ -184,6 +184,7 @@ export interface Lead {
     source: string;
     status: LeadStatus;
     addedDate: string;
+    instituteId?: string;
 }
 
 // Data Management Types
@@ -385,11 +386,11 @@ export interface Quiz {
   quizType: QuizType;
   questions: MCQ[];
   topic: string;
-  // Library Metadata
-  ownerId: string;
-  classId: string;
-  subjectId: string;
-  instituteId: string;
+  // Library Metadata — set when saving; optional during generation
+  ownerId?: string;
+  classId?: string;
+  subjectId?: string;
+  instituteId?: string;
 }
 
 export interface Flashcard {
@@ -401,11 +402,11 @@ export interface FlashcardSet {
   title: string;
   flashcards: Flashcard[];
   topic: string;
-  // Library Metadata
-  ownerId: string;
-  classId: string;
-  subjectId: string;
-  instituteId: string;
+  // Library Metadata — set when saving; optional during generation
+  ownerId?: string;
+  classId?: string;
+  subjectId?: string;
+  instituteId?: string;
 }
 
 export interface StudyMaterial {
@@ -605,7 +606,7 @@ export interface EmailCampaign {
 
 export interface SocialPost {
     id: string;
-    platform: 'Facebook' | 'Instagram' | 'LinkedIn';
+    platform: 'Facebook' | 'Instagram' | 'LinkedIn' | 'Twitter' | 'YouTube' | 'WhatsApp';
     content: string;
     status: 'Scheduled' | 'Posted';
     scheduledDate: string; // ISO String

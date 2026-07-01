@@ -674,8 +674,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             fTeachers.forEach(t => t.classIds.forEach(id => relevantClassIds.add(id)));
 
             const fClasses = instClasses.filter(c => relevantClassIds.has(c.id));
-            const fQuizzes = instQuizzes.filter(q => relevantClassIds.has(q.classId));
-            const fFlashcardSets = instFlashcardSets.filter(fs => relevantClassIds.has(fs.classId));
+            const fQuizzes = instQuizzes.filter(q => q.classId !== undefined && relevantClassIds.has(q.classId));
+            const fFlashcardSets = instFlashcardSets.filter(fs => fs.classId !== undefined && relevantClassIds.has(fs.classId));
             const fStudyMaterials = instStudyMaterials.filter(sm => relevantClassIds.has(sm.classId));
             const fVideos = instVideos.filter(v => relevantClassIds.has(v.classId));
             const fUploadedDocuments = instUploadedDocuments.filter(ud => relevantClassIds.has(ud.classId));
@@ -724,8 +724,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 filteredStudents: instStudents.filter(s => s.classId && teacherClassIds.has(s.classId)),
                 filteredTeachers: instTeachers.filter(t => t.id === teacherUser.id),
                 filteredSubjects: instSubjects.filter(s => teacherSubjectIds.has(s.id)),
-                filteredQuizzes: instQuizzes.filter(q => teacherClassIds.has(q.classId)),
-                filteredFlashcardSets: instFlashcardSets.filter(fs => teacherClassIds.has(fs.classId)),
+                filteredQuizzes: instQuizzes.filter(q => q.classId !== undefined && teacherClassIds.has(q.classId)),
+                filteredFlashcardSets: instFlashcardSets.filter(fs => fs.classId !== undefined && teacherClassIds.has(fs.classId)),
                 filteredStudyMaterials: instStudyMaterials.filter(sm => teacherClassIds.has(sm.classId)),
                 filteredVideos: instVideos.filter(v => teacherClassIds.has(v.classId)),
                 filteredUploadedDocuments: instUploadedDocuments.filter(ud => teacherClassIds.has(ud.classId)),

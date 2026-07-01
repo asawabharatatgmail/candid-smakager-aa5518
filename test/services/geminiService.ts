@@ -231,7 +231,7 @@ export const generateLeadFormScript = async (fields: string[]): Promise<{ "Code.
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         const scriptData = JSON.parse(jsonText);
         return scriptData;
     } catch (error) {
@@ -270,7 +270,7 @@ export const generateEmailForLead = async (
         },
     });
 
-    const jsonText = response.text.trim();
+    const jsonText = (response.text ?? '').trim();
     const emailData = JSON.parse(jsonText);
 
     if (emailData && emailData.subject && emailData.body) {
@@ -333,7 +333,7 @@ export const generateSchedule = async (
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         const scheduleData = JSON.parse(jsonText);
 
         if (Array.isArray(scheduleData)) {
@@ -376,7 +376,7 @@ Provide a detailed analysis in JSON format according to the provided schema. Foc
             temperature: 0.3
         }
     });
-    const jsonText = response.text.trim();
+    const jsonText = (response.text ?? '').trim();
     return JSON.parse(jsonText);
   } catch (error) {
     throw new Error("Could not generate lead analysis. The AI service may be temporarily unavailable.");
@@ -398,7 +398,7 @@ export const generateMcqQuiz = async (topic: string, numQuestions: number, diffi
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         const quizData = JSON.parse(jsonText);
         
         if (quizData && Array.isArray(quizData.questions)) {
@@ -426,7 +426,7 @@ export const generateFlashcards = async (topic: string, numFlashcards: number): 
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         const flashcardData = JSON.parse(jsonText);
         
         if (flashcardData && Array.isArray(flashcardData.flashcards)) {
@@ -459,7 +459,7 @@ export const generateStudyMaterial = async (
         },
     });
 
-    const jsonText = response.text.trim();
+    const jsonText = (response.text ?? '').trim();
     const materialData = JSON.parse(jsonText);
 
     if (materialData && materialData.title && materialData.content) {
@@ -494,7 +494,7 @@ export const findEducationalVideos = async (topic: string, gradeLevel: string): 
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         // Try to find a JSON array within the response text
         const match = jsonText.match(/(\[[\s\S]*\])/);
         if (match && match[1]) {
@@ -522,7 +522,7 @@ export const generateQuote = async (): Promise<string> => {
                 temperature: 1,
             }
         });
-        return response.text;
+        return response.text ?? '';
     } catch (error) {
         return "The greatest glory in living lies not in never falling, but in rising every time we fall. - Nelson Mandela";
     }
@@ -558,7 +558,7 @@ export const generatePersonalizedInsight = async (role: UserRole): Promise<strin
                 temperature: 0.8,
             }
         });
-        return response.text;
+        return response.text ?? '';
     } catch (error) {
         return "Focus on collaboration to enhance the learning experience for everyone.";
     }
@@ -579,7 +579,7 @@ export const generateGameLevels = async (topic: string, numLevels: number, quest
             },
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = (response.text ?? '').trim();
         const gameData = JSON.parse(jsonText);
         
         if (Array.isArray(gameData)) {
@@ -682,7 +682,7 @@ export const summarizeNote = async (noteContent: string): Promise<string> => {
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
-        return response.text;
+        return response.text ?? '';
     } catch (error) {
         throw new Error("Failed to summarize note.");
     }
@@ -696,7 +696,7 @@ export const generateQuestionsFromNote = async (noteContent: string): Promise<st
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
-        return response.text;
+        return response.text ?? '';
     } catch (error) {
         throw new Error("Failed to generate questions.");
     }
@@ -710,7 +710,7 @@ export const explainText = async (text: string): Promise<string> => {
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
-        return response.text;
+        return response.text ?? '';
     } catch (error) {
         throw new Error("Failed to explain text.");
     }

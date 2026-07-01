@@ -628,20 +628,20 @@ const UserGuideView: React.FC = () => {
                     {item.body && (
                       <p className="text-sm text-slate-600 leading-relaxed pt-4">{item.body}</p>
                     )}
-                    {item.table && (
+                    {'table' in item && item.table && (
                       <div className="overflow-x-auto rounded-xl border border-slate-200 mt-3">
                         <table className="w-full text-sm">
                           <thead className="bg-slate-50 border-b border-slate-200">
                             <tr>
-                              {item.table.headers.map(h => (
+                              {item.table.headers.map((h: string) => (
                                 <th key={h} className="text-left px-4 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                               ))}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {item.table.rows.map((row, ri) => (
+                            {item.table.rows.map((row: string[], ri: number) => (
                               <tr key={ri} className="hover:bg-blue-50/30">
-                                {row.map((cell, ci) => (
+                                {row.map((cell: string, ci: number) => (
                                   <td key={ci} className={`px-4 py-3 text-sm ${ci === 0 ? 'font-semibold text-slate-800' : ci === 1 ? 'font-mono text-blue-600' : 'text-slate-600'}`}>
                                     {cell}
                                   </td>
@@ -652,11 +652,11 @@ const UserGuideView: React.FC = () => {
                         </table>
                       </div>
                     )}
-                    {item.steps && item.steps.length > 0 && (
+                    {'steps' in item && item.steps && item.steps.length > 0 && (
                       <div className="space-y-2 mt-2">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Step-by-Step</p>
                         <ol className="space-y-2">
-                          {item.steps.map((step, si) => (
+                          {item.steps.map((step: string, si: number) => (
                             <li key={si} className="flex items-start gap-3">
                               <span className={`flex-shrink-0 w-6 h-6 rounded-full ${currentSection.color} text-white text-xs font-bold flex items-center justify-center mt-0.5`}>
                                 {si + 1}

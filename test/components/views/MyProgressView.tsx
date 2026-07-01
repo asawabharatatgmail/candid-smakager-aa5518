@@ -15,6 +15,7 @@ const MyProgressView: React.FC = () => {
     const submissionsBySubject: { [subjectId: string]: { totalScore: number; totalPossible: number; } } = {};
     studentSubmissions.forEach(sub => {
         const subjectId = sub.quiz.subjectId;
+        if (!subjectId) return;
         if (!submissionsBySubject[subjectId]) {
             submissionsBySubject[subjectId] = { totalScore: 0, totalPossible: 0 };
         }

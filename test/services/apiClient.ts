@@ -133,7 +133,7 @@ async function* streamPost(path: string, body: object): AsyncGenerator<{ text: s
 
 export const generateMcqQuiz = async (
   topic: string, numQuestions: number, difficulty: string, quizType: QuizType
-): Promise<Omit<Quiz, 'id' | 'quizType'> | null> => {
+): Promise<Pick<Quiz, 'quizTitle' | 'questions' | 'topic'> | null> => {
   if (canUseDirect()) {
     const prompt = `Create a ${difficulty} difficulty ${quizType} quiz about "${topic}" with exactly ${numQuestions} questions.
 Return ONLY a valid JSON object with this exact structure:
@@ -162,7 +162,7 @@ Return ONLY a valid JSON object with this exact structure:
 
 export const generateFlashcards = async (
   topic: string, numFlashcards: number
-): Promise<Omit<FlashcardSet, 'id'> | null> => {
+): Promise<Pick<FlashcardSet, 'title' | 'flashcards' | 'topic'> | null> => {
   if (canUseDirect()) {
     const prompt = `Create ${numFlashcards} educational flashcards about "${topic}".
 Return ONLY a valid JSON object:
@@ -249,7 +249,7 @@ Return JSON: {"summary": "2-3 sentence analysis", "topSource": "string", "conver
     return JSON.parse(raw);
   }
   try {
-    return await get<any>(`/api/ai/leads/summary?institute_id=${leads[0]?.instituteId ?? ''}`);
+    return await get<any>(`/api/ai/leads/summary?institute_id=${(leads[0]?.instituteId) ?? ''}`);
   } catch { throw new Error('Could not generate lead analysis.'); }
 };
 

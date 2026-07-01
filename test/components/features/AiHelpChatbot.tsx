@@ -52,6 +52,14 @@ const chatConfigByRole: Record<UserRole, { welcome: string; suggestions: string[
         welcome: "Hello! I can help you with fee payments, your child's progress, and communication. What can I do for you?",
         suggestions: ["How do I pay fees?", "Where can I see my child's scores?", "How to download a receipt?"]
     },
+    [UserRole.ExternalParent]: {
+        welcome: "Hello! I can help you track your child's learning, manage subscriptions, and access study tools.",
+        suggestions: ["How do I add a child profile?", "Where are AI study tools?", "How do I manage my subscription?"]
+    },
+    [UserRole.ExternalStudent]: {
+        welcome: "Hi! I'm your personal AI tutor. Ask me anything — quizzes, flashcards, study tips.",
+        suggestions: ["Generate a quiz for me", "Create flashcards on a topic", "Help me build a study plan"]
+    },
 };
 
 const AiHelpChatbot: React.FC = () => {
