@@ -33,7 +33,7 @@ async function safeFetch<T>(path: string, options?: RequestInit): Promise<T | nu
   }
 }
 
-type SyncableCategory = 'branches' | 'students' | 'teachers' | 'classes' | 'subjects';
+type SyncableCategory = 'branches' | 'students' | 'teachers' | 'classes' | 'subjects' | 'leads';
 
 const CATEGORY_PATH: Record<SyncableCategory, string> = {
   branches: '/api/branches/',
@@ -41,6 +41,7 @@ const CATEGORY_PATH: Record<SyncableCategory, string> = {
   teachers: '/api/teachers/',
   classes: '/api/classes/',
   subjects: '/api/subjects/',
+  leads: '/api/leads/',
 };
 
 export const isSyncableCategory = (category: string): category is SyncableCategory =>
@@ -68,6 +69,13 @@ function toCreatePayload(category: SyncableCategory, record: any, instituteId: s
       return { name: record.name, institute_id: instituteId };
     case 'subjects':
       return { name: record.name, category: record.category ?? 'General', institute_id: instituteId };
+    case 'leads':
+      return {
+        name: record.name, email: record.email, mobile: record.mobile,
+        source: record.source ?? 'Website',
+        status: 'New', // always New on creation; status set to 'active' by addRecord is ignored here
+        institute_id: instituteId,
+      };
   }
 }
 
@@ -87,6 +95,8 @@ function toUpdatePayload(category: SyncableCategory, record: any): object {
       return { name: record.name, teacher_ids: record.teacherIds, student_ids: record.studentIds };
     case 'subjects':
       return { name: record.name, category: record.category };
+    case 'leads':
+      return { status: record.status, notes: record.notes, source: record.source };
   }
 }
 

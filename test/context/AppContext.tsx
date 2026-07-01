@@ -5,6 +5,7 @@ import { SEED_INSTITUTES, SEED_BRANCHES, SEED_CLASSES, SEED_SUBJECTS, SEED_USERS
 import { generateSchedule, generateGameLevels } from '../services/apiClient';
 import { apiListChildren, apiGetAiConfig, apiListAiContent } from '../services/externalDataApi';
 import { apiCreateInstituteRecord, apiUpdateInstituteRecord, apiDeleteInstituteRecord, apiListInstituteRecords, isSyncableCategory } from '../services/institutionApi';
+import { apiListFeeStructures, apiCreateFeeStructure, apiDeleteFeeStructure, apiListDiscounts, apiCreateDiscount, apiDeleteDiscount, apiCreateLeadReminder, apiListEmailTemplates, apiCreateEmailTemplate, apiDeleteEmailTemplate } from '../services/feesLeadsApi';
 import { format, add } from 'date-fns';
 
 const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -1114,13 +1115,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // reachable, otherwise the existing localStorage cache (seed data or
     // prior session) is left as-is. Mirrors hydrateExternalData's pattern.
     const hydrateInstituteData = useCallback(async (instituteId: string) => {
-        const [branchesRes, studentsRes, teachersRes, classesRes, subjectsRes] = await Promise.all([
+        const [
+            branchesRes, studentsRes, teachersRes, classesRes, subjectsRes,
+            leadsRes, feeStructuresRes, discountsRes, emailTemplatesRes,
+        ] = await Promise.all([
             apiListInstituteRecords('branches', instituteId),
             apiListInstituteRecords('students', instituteId),
             apiListInstituteRecords('teachers', instituteId),
             apiListInstituteRecords('classes', instituteId),
             apiListInstituteRecords('subjects', instituteId),
+            apiListInstituteRecords('leads', instituteId),
+            apiListFeeStructures(instituteId),
+            apiListDiscounts(instituteId),
+            apiListEmailTemplates(instituteId),
         ]);
+
         if (branchesRes) setBranches(prev => [...prev.filter(b => b.instituteId !== instituteId), ...branchesRes.map((b: any): Branch => ({
             id: b.id, name: b.name, location: b.location, head: b.head, instituteId: b.institute_id,
         }))]);
@@ -1141,6 +1150,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (subjectsRes) setSubjects(prev => [...prev.filter(s => s.instituteId !== instituteId), ...subjectsRes.map((s: any): Subject => ({
             id: s.id, name: s.name, category: s.category, instituteId: s.institute_id,
         }))]);
+
+        // Lead type has no instituteId field, so replace all rather than filtering by institute.
+        // Single-institute-per-session makes this safe.
+        if (leadsRes) setLeads(leadsRes.map((l: any): Lead => ({
+            id: l.id, name: l.name, email: l.email, mobile: l.mobile,
+            source: l.source, status: l.status as LeadStatus,
+            addedDate: l.added_date ?? l.created_at ?? new Date().toISOString(),
+        })));
+
+        if (feeStructuresRes) setFeeStructures(prev => [
+            ...prev.filter(fs => fs.instituteId !== instituteId),
+            ...feeStructuresRes.map((fs: any): FeeStructure => ({
+                id: fs.id, name: fs.name, academicYear: fs.academic_year,
+                totalAmount: fs.total_amount, classId: fs.class_id, branchId: fs.branch_id,
+                paymentMode: fs.payment_mode as 'Lumpsum' | 'Installments',
+                lateFeePerDay: fs.late_fee_per_day ?? 0,
+                installments: (fs.fee_structure_installments ?? []).map((i: any): FeeStructureInstallment => ({
+                    name: i.name, percentage: i.percentage, dueDate: i.due_date,
+                })),
+                instituteId: fs.institute_id,
+            })),
+        ]);
+
+        if (discountsRes) setDiscounts(prev => [
+            ...prev.filter(d => d.instituteId !== instituteId),
+            ...discountsRes.map((d: any): Discount => ({
+                id: d.id, name: d.name, type: d.type as 'Percentage' | 'Fixed Amount', value: d.value,
+                instituteId: d.institute_id,
+            })),
+        ]);
+
+        // EmailTemplate has no instituteId field — replace all (single-institute-per-session).
+        if (emailTemplatesRes) setEmailTemplates(emailTemplatesRes.map((et: any): EmailTemplate => ({
+            id: et.id, name: et.name, subject: et.subject, body: et.body,
+            statusTarget: et.status_target as LeadStatus | 'General',
+        })));
     }, []);
 
     const loginExternal = useCallback(async (email: string, password: string): Promise<'parent' | 'student' | false> => {
@@ -1427,6 +1472,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Best-effort backend sync — local state above already updated.
         if (isSyncableCategory(category) && activeInstitute?.id) {
             apiCreateInstituteRecord(category, newRecord, activeInstitute.id);
+        } else if (category === 'feeStructures' && activeInstitute?.id) {
+            apiCreateFeeStructure(newRecord, activeInstitute.id);
+        } else if (category === 'discounts' && activeInstitute?.id) {
+            apiCreateDiscount(newRecord, activeInstitute.id);
         }
     }, [dataStores, activeInstitute, students.length, currentSubscription, setInstitutes, setUsers]);
 
@@ -1504,6 +1553,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isSyncableCategory(category)) {
             apiDeleteInstituteRecord(category, id);
+        } else if (category === 'feeStructures') {
+            apiDeleteFeeStructure(id);
+        } else if (category === 'discounts') {
+            apiDeleteDiscount(id);
         }
     }, [dataStores]);
     
@@ -1757,6 +1810,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const addReminder = useCallback((reminder: Omit<Reminder, 'id' | 'isCompleted'>) => {
         const newReminder = { ...reminder, id: `rem_${Date.now()}`, isCompleted: false };
         setReminders(prev => [...prev, newReminder]);
+        apiCreateLeadReminder(reminder.leadId, reminder.dateTime, reminder.notes);
     }, []);
 
     const updateReminder = useCallback((reminderId: string, updates: Partial<Reminder>) => {
@@ -1766,7 +1820,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const addEmailTemplate = useCallback((template: Omit<EmailTemplate, 'id'>) => {
         const newTemplate = { ...template, id: `et_${Date.now()}` };
         setEmailTemplates(prev => [...prev, newTemplate]);
-    }, []);
+        if (activeInstitute?.id) apiCreateEmailTemplate(template, activeInstitute.id);
+    }, [activeInstitute]);
 
     const updateEmailTemplate = useCallback((templateId: string, template: EmailTemplate) => {
         setEmailTemplates(prev => prev.map(t => t.id === templateId ? template : t));
@@ -1774,6 +1829,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const deleteEmailTemplate = useCallback((templateId: string) => {
         setEmailTemplates(prev => prev.filter(t => t.id !== templateId));
+        apiDeleteEmailTemplate(templateId);
     }, []);
     
     // Fee Management
