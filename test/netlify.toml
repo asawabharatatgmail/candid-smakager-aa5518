@@ -9,3 +9,14 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# ── Production env vars — set these in Netlify dashboard, NOT here ─────────────
+# Site → Build & Deploy → Environment variables:
+#
+#   VITE_API_URL          = https://eduveda-api.onrender.com   (your Render URL)
+#   VITE_SUPABASE_URL     = https://<project>.supabase.co
+#   VITE_SUPABASE_ANON_KEY = <rotated anon key>
+#   GEMINI_API_KEY        = <optional — omit to use backend AI only>
+#
+# DO NOT paste real values here — this file is committed to git.
+# ─────────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: eduveda-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore          # closest to India; change to oregon/frankfurt as needed
+    healthCheckPath: /health
+
+    # All values must be set in the Render dashboard — never commit real secrets.
+    # Set these under: Dashboard → eduveda-api → Environment
+    envVars:
+      - key: SUPABASE_URL
+        sync: false            # filled in Render dashboard
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      - key: APP_NAME
+        value: EduVeda
+      - key: APP_ENV
+        value: production
+      # Set CORS_ORIGINS to your real frontend URL after deploy, e.g.:
+      # https://system4learn.com,https://www.system4learn.com
+      - key: CORS_ORIGINS
+        sync: false
