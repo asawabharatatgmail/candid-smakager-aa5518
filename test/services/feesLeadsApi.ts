@@ -83,6 +83,58 @@ export const apiCreateDiscount = (record: any, instituteId: string) =>
 export const apiDeleteDiscount = (id: string) =>
   safeFetch<null>(`/api/fees/discounts/${id}`, { method: 'DELETE' });
 
+// ─── Fee Profiles & Payment ────────────────────────────────────────────────────
+// apiCreateFeeProfile is called from setStudentPaymentPlan (the one moment when
+// both the final netPayable AND the installment schedule are known at once).
+// On success the caller replaces temp local IDs with real backend UUIDs so that
+// subsequent apiRecordPayment calls use real foreign keys.
+
+export const apiListFeeProfiles = (instituteId: string) =>
+  safeFetch<any[]>(`/api/fees/profiles?institute_id=${instituteId}`);
+
+export const apiCreateFeeProfile = (profile: any, instituteId: string) =>
+  safeFetch<any>('/api/fees/profiles', {
+    method: 'POST',
+    body: JSON.stringify({
+      student_id: profile.studentId,
+      academic_year: profile.academicYear,
+      fee_structure_id: profile.feeStructureId,
+      total_fee: profile.totalFee,
+      total_discount: profile.totalDiscount,
+      net_payable: profile.netPayable,
+      institute_id: instituteId,
+      installments: (profile.installments ?? []).map((i: any) => ({
+        dueDate: i.dueDate,
+        amountDue: i.amountDue,
+      })),
+      applied_discounts: (profile.appliedDiscounts ?? []).map((d: any) => ({
+        discountId: d.discountId,
+        name: d.name,
+        appliedAmount: d.appliedAmount,
+      })),
+    }),
+  });
+
+export const apiRecordPayment = (params: {
+  feeProfileId: string;
+  installmentId: string;
+  amountPaid: number;
+  paymentMode: string;
+  studentId: string;
+  instituteId: string;
+}) =>
+  safeFetch<any>('/api/fees/payment', {
+    method: 'POST',
+    body: JSON.stringify({
+      fee_profile_id: params.feeProfileId,
+      installment_id: params.installmentId,
+      amount_paid: params.amountPaid,
+      payment_mode: params.paymentMode,
+      student_id: params.studentId,
+      institute_id: params.instituteId,
+    }),
+  });
+
 // ─── Lead Reminders ────────────────────────────────────────────────────────────
 
 export const apiCreateLeadReminder = (leadId: string, dateTime: string, notes?: string) =>

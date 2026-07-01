@@ -5,7 +5,7 @@ import { SEED_INSTITUTES, SEED_BRANCHES, SEED_CLASSES, SEED_SUBJECTS, SEED_USERS
 import { generateSchedule, generateGameLevels } from '../services/apiClient';
 import { apiListChildren, apiGetAiConfig, apiListAiContent } from '../services/externalDataApi';
 import { apiCreateInstituteRecord, apiUpdateInstituteRecord, apiDeleteInstituteRecord, apiListInstituteRecords, isSyncableCategory } from '../services/institutionApi';
-import { apiListFeeStructures, apiCreateFeeStructure, apiDeleteFeeStructure, apiListDiscounts, apiCreateDiscount, apiDeleteDiscount, apiCreateLeadReminder, apiListEmailTemplates, apiCreateEmailTemplate, apiDeleteEmailTemplate } from '../services/feesLeadsApi';
+import { apiListFeeStructures, apiCreateFeeStructure, apiDeleteFeeStructure, apiListDiscounts, apiCreateDiscount, apiDeleteDiscount, apiCreateLeadReminder, apiListEmailTemplates, apiCreateEmailTemplate, apiDeleteEmailTemplate, apiListFeeProfiles, apiCreateFeeProfile, apiRecordPayment } from '../services/feesLeadsApi';
 import { format, add } from 'date-fns';
 
 const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -1117,7 +1117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hydrateInstituteData = useCallback(async (instituteId: string) => {
         const [
             branchesRes, studentsRes, teachersRes, classesRes, subjectsRes,
-            leadsRes, feeStructuresRes, discountsRes, emailTemplatesRes,
+            leadsRes, feeStructuresRes, discountsRes, emailTemplatesRes, feeProfilesRes,
         ] = await Promise.all([
             apiListInstituteRecords('branches', instituteId),
             apiListInstituteRecords('students', instituteId),
@@ -1128,6 +1128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             apiListFeeStructures(instituteId),
             apiListDiscounts(instituteId),
             apiListEmailTemplates(instituteId),
+            apiListFeeProfiles(instituteId),
         ]);
 
         if (branchesRes) setBranches(prev => [...prev.filter(b => b.instituteId !== instituteId), ...branchesRes.map((b: any): Branch => ({
@@ -1185,6 +1186,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (emailTemplatesRes) setEmailTemplates(emailTemplatesRes.map((et: any): EmailTemplate => ({
             id: et.id, name: et.name, subject: et.subject, body: et.body,
             statusTarget: et.status_target as LeadStatus | 'General',
+        })));
+
+        // Fee profiles include nested installments and applied discounts.
+        // Replacing them with real backend UUIDs means subsequent recordPayment calls
+        // use real foreign keys without needing a separate ID-lookup step.
+        // StudentFeeProfile has no instituteId field — replace all (single-institute-per-session).
+        if (feeProfilesRes) setStudentFeeProfiles(feeProfilesRes.map((fp: any): StudentFeeProfile => ({
+            id: fp.id,
+            studentId: fp.student_id,
+            academicYear: fp.academic_year,
+            feeStructureId: fp.fee_structure_id ?? null,
+            totalFee: fp.total_fee,
+            totalDiscount: fp.total_discount ?? 0,
+            netPayable: fp.net_payable,
+            installments: (fp.student_installments ?? []).map((i: any): Installment => ({
+                id: i.id,
+                installmentNumber: i.installment_number,
+                dueDate: i.due_date,
+                amountDue: i.amount_due,
+                amountPaid: i.amount_paid ?? 0,
+                lateFeeApplied: i.late_fee_applied ?? 0,
+                status: i.status as Installment['status'],
+                paymentDate: i.payment_date ?? undefined,
+                receiptId: i.receipt_id ?? undefined,
+            })),
+            appliedDiscounts: (fp.student_applied_discounts ?? []).map((d: any) => ({
+                discountId: d.discount_id,
+                name: d.name,
+                appliedAmount: d.applied_amount,
+            })),
         })));
     }, []);
 
@@ -1870,24 +1901,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [discounts]);
     
     const setStudentPaymentPlan = useCallback((studentId: string, numInstallments: number, lateFeePerDay: number) => {
-         setStudentFeeProfiles(prev => prev.map(profile => {
-            if (profile.studentId === studentId) {
-                const amountPerInstallment = profile.netPayable / numInstallments;
-                const today = new Date();
-                const newInstallments: Installment[] = Array.from({ length: numInstallments }, (_, i) => ({
-                    id: `inst_${studentId}_${i+1}`,
-                    installmentNumber: i + 1,
-                    dueDate: format(add(today, { months: i * (12 / numInstallments) }), 'yyyy-MM-dd'),
-                    amountDue: amountPerInstallment,
-                    amountPaid: 0,
-                    lateFeeApplied: 0,
-                    status: 'Pending',
-                }));
-                 return { ...profile, installments: newInstallments };
-            }
-            return profile;
+        // Compute new installments BEFORE setState so we can use the complete profile
+        // for the backend sync call (the .then() in setState would not have access to it).
+        const currentProfile = studentFeeProfiles.find(p => p.studentId === studentId);
+        if (!currentProfile) return;
+
+        const amountPerInstallment = currentProfile.netPayable / numInstallments;
+        const today = new Date();
+        const newInstallments: Installment[] = Array.from({ length: numInstallments }, (_, i) => ({
+            id: `inst_${studentId}_${i + 1}`,
+            installmentNumber: i + 1,
+            dueDate: format(add(today, { months: i * (12 / numInstallments) }), 'yyyy-MM-dd'),
+            amountDue: amountPerInstallment,
+            amountPaid: 0,
+            lateFeeApplied: 0,
+            status: 'Pending' as const,
         }));
-    }, []);
+        const updatedProfile: StudentFeeProfile = { ...currentProfile, installments: newInstallments };
+
+        setStudentFeeProfiles(prev => prev.map(p => p.studentId === studentId ? updatedProfile : p));
+
+        // Best-effort backend sync. On success, swap temp local IDs for real backend UUIDs
+        // so that subsequent recordPayment calls use real foreign keys.
+        if (activeInstitute?.id) {
+            apiCreateFeeProfile(updatedProfile, activeInstitute.id).then(backendProfile => {
+                if (!backendProfile) return;
+                setStudentFeeProfiles(prev => prev.map(p => {
+                    if (p.studentId !== studentId) return p;
+                    return {
+                        ...p,
+                        id: backendProfile.id,
+                        installments: p.installments.map((inst, idx) => ({
+                            ...inst,
+                            id: (backendProfile.student_installments ?? [])[idx]?.id ?? inst.id,
+                        })),
+                    };
+                }));
+            });
+        }
+    }, [studentFeeProfiles, activeInstitute]);
     
     const recordPayment = useCallback((studentId: string, installmentId: string, amount: number, mode: FeeReceipt['paymentMode']) => {
         const receiptNumber = `RCPT-${Date.now()}`;
@@ -1918,7 +1970,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return profile;
         }));
-    }, []);
+
+        // Best-effort backend sync. Succeeds only when the fee profile was previously
+        // persisted via setStudentPaymentPlan (IDs are real backend UUIDs). Fails soft
+        // with temp local IDs — no user-visible error in either case.
+        const profile = studentFeeProfiles.find(p => p.studentId === studentId);
+        if (profile && activeInstitute?.id) {
+            apiRecordPayment({
+                feeProfileId: profile.id,
+                installmentId,
+                amountPaid: amount,
+                paymentMode: mode,
+                studentId,
+                instituteId: activeInstitute.id,
+            });
+        }
+    }, [studentFeeProfiles, activeInstitute]);
     
     // Gamification
     const createGameChallenge = useCallback(async (challengeData: any) => {

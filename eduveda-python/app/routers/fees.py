@@ -100,6 +100,14 @@ async def delete_discount(discount_id: str, current_user: dict = Depends(get_cur
 
 # ─── Student Fee Profiles ────────────────────────────────────────────────────
 
+@router.get("/profiles")
+async def list_fee_profiles(institute_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    iid = institute_id or current_user.get("institute_id")
+    return supabase.table("student_fee_profiles").select(
+        "*, student_installments(*), student_applied_discounts(*)"
+    ).eq("institute_id", iid).execute().data
+
+
 @router.get("/profiles/student/{student_id}")
 async def get_student_fee_profile(student_id: str, academic_year: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     query = supabase.table("student_fee_profiles").select("*, student_installments(*), student_applied_discounts(*)").eq("student_id", student_id)
