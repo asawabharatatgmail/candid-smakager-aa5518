@@ -85,6 +85,7 @@ import PublicLibraryView from './components/views/PublicLibraryView';
 import ExtStudentProgressView from './components/views/ExtStudentProgressView';
 import StudentSubscriptionView from './components/views/StudentSubscriptionView';
 import StudentPlansView from './components/views/StudentPlansView';
+import LaunchControlView from './components/views/LaunchControlView';
 
 
 const dashboardMap: Record<UserRole, React.FC> = {
@@ -159,6 +160,7 @@ const viewMap: Record<string, React.ReactElement> = {
     'parent-plans': <ParentPlansView />,
     'role-manager':        <RoleManagerView />,
     'student-plans':       <StudentPlansView />,
+    'launch-control':      <LaunchControlView />,
     // External Parent views
     'ext-children':        <ExternalChildrenView />,
     'ext-ai-generator':    <AiGeneratorView />,

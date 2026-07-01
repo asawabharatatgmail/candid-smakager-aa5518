@@ -216,6 +216,7 @@ export const NAV_LINKS: Record<UserRole, NavLink[]> = {
     { label: 'Parent Plans',  key: 'parent-plans',   icon: SparklesIcon },
     { label: 'Student Plans', key: 'student-plans',  icon: BrainIcon },
     { label: 'Role Manager',  key: 'role-manager',   icon: ShieldCheckIcon },
+    { label: 'Launch Control', key: 'launch-control', icon: PlugZapIcon },
   ],
   [UserRole.ClassAdmin]: [
     { label: 'Dashboard', key: 'dashboard', icon: HomeIcon },
