@@ -1270,7 +1270,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: data.name, email: data.email, password: data.password, mobile: data.mobile, city: data.city }),
             });
-            if (!res.ok) return false;
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.detail || 'Registration failed. Please try again.');
+            }
             const resp = await res.json();
             localStorage.setItem('eduveda_token', resp.access_token);
             const ep = mapExternalParentFromApi(resp.user);
@@ -1284,8 +1287,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setActiveView('dashboard');
             setShowLoginPage(false);
             return true;
-        } catch {
-            return false;
+        } catch (e) {
+            throw e;
         }
     }, [roleConfigs]);
 
@@ -1302,7 +1305,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     school_name: data.schoolName, city: data.city,
                 }),
             });
-            if (!res.ok) return false;
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.detail || 'Registration failed. Please try again.');
+            }
             const resp = await res.json();
             localStorage.setItem('eduveda_token', resp.access_token);
             const es = mapExternalStudentFromApi(resp.user);
@@ -1316,8 +1322,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setActiveView('dashboard');
             setShowLoginPage(false);
             return true;
-        } catch {
-            return false;
+        } catch (e) {
+            throw e;
         }
     }, [roleConfigs]);
 

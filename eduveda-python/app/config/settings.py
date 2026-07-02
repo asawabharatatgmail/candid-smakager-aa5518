@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 480
     app_name: str = "EduVeda"
     app_env: str = "development"
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "https://system4learn.com,https://candid-smakager-aa5518.netlify.app,http://localhost:3000,http://localhost:5173"
 
     # SMTP — set these in .env (Gmail: use an App Password)
     smtp_host: str = "smtp.gmail.com"

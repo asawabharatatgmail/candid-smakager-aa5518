@@ -50,6 +50,11 @@ function validateMobile(v: string): string {
   if (!/^[6-9]\d{9}$/.test(clean)) return 'Valid 10-digit Indian number required.';
   return '';
 }
+function validateEmail(v: string): string {
+  if (!v) return 'Email is required.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return 'Enter a valid email address (e.g. you@gmail.com).';
+  return '';
+}
 function validateCity(v: string): string {
   if (!v) return '';
   if (!/^[A-Za-z\s.\-']+$/.test(v.trim())) return 'Letters and spaces only.';
@@ -226,7 +231,7 @@ const LoginPage: React.FC = () => {
   const [regSchool, setRegSchool]   = useState('');
 
   // Validation touched state
-  const [touched, setTouched] = useState({ name: false, mobile: false, city: false });
+  const [touched, setTouched] = useState({ name: false, email: false, mobile: false, city: false });
 
   useEffect(() => {
     if (institutes.length > 0 && !instituteName) setInstituteName(institutes[0].name);
@@ -242,7 +247,7 @@ const LoginPage: React.FC = () => {
     setExtEmail(''); setExtPwd(''); setExtError('');
     setRegName(''); setRegMobile(''); setRegCity('');
     setRegGrade('Class 10'); setRegAge('15'); setRegSubjects([]); setRegSchool('');
-    setTouched({ name: false, mobile: false, city: false });
+    setTouched({ name: false, email: false, mobile: false, city: false });
     setShowForgotExt(false);
   };
 
@@ -277,15 +282,17 @@ const LoginPage: React.FC = () => {
   // ── External register (parent) ──
   const handleRegParent = async () => {
     const nameErr = validateName(regName);
+    const emailErr = validateEmail(extEmail);
     const mobileErr = validateMobile(regMobile);
     const cityErr = validateCity(regCity);
-    setTouched({ name: true, mobile: true, city: true });
-    if (nameErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
-    if (!extEmail || !extPwd) { setExtError('Email and password are required.'); return; }
+    setTouched({ name: true, email: true, mobile: true, city: true });
+    if (nameErr || emailErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
+    if (!extPwd) { setExtError('Password is required.'); return; }
     setExtError(''); setExtLoading(true);
     try {
-      const ok = await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
-      if (!ok) setExtError('An account with this email already exists, or the server is unreachable.');
+      await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
+    } catch (e: any) {
+      setExtError(e?.message || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -294,15 +301,17 @@ const LoginPage: React.FC = () => {
   // ── External register (student) ──
   const handleRegStudent = async () => {
     const nameErr = validateName(regName);
+    const emailErr = validateEmail(extEmail);
     const mobileErr = regMobile ? validateMobile(regMobile) : '';
     const cityErr = validateCity(regCity);
-    setTouched({ name: true, mobile: true, city: true });
-    if (nameErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
-    if (!extEmail || !extPwd) { setExtError('Email and password are required.'); return; }
+    setTouched({ name: true, email: true, mobile: true, city: true });
+    if (nameErr || emailErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
+    if (!extPwd) { setExtError('Password is required.'); return; }
     setExtError(''); setExtLoading(true);
     try {
-      const ok = await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
-      if (!ok) setExtError('An account with this email already exists, or the server is unreachable.');
+      await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
+    } catch (e: any) {
+      setExtError(e?.message || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -330,8 +339,12 @@ const LoginPage: React.FC = () => {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email *</label>
-          <input type="email" value={extEmail} onChange={e => setExtEmail(e.target.value)} placeholder="you@email.com"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
+          <input type="email" value={extEmail}
+            onChange={e => setExtEmail(e.target.value)}
+            onBlur={() => setTouched(t => ({ ...t, email: true }))}
+            placeholder="you@gmail.com"
+            className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400 ${touched.email && validateEmail(extEmail) ? 'border-red-300 bg-red-50' : 'border-slate-200'}`} />
+          {touched.email && <FieldError msg={validateEmail(extEmail)} />}
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password *</label>

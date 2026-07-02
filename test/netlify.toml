@@ -1,6 +1,6 @@
 [build]
   publish = "dist"
-  command = "node node_modules/vite/bin/vite.js build"
+  command = "npx vite build"
 
 [[redirects]]
   from = "/*"
