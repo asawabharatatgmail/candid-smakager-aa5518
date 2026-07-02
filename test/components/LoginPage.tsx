@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { DEMO_CREDENTIALS } from '../data/seedData';
+import { forgotPassword as apiForgotPassword, resetPassword as apiResetPassword } from '../services/apiClient';
 
 type LoginTab = 'institute' | 'parent' | 'student';
 type ExtMode = 'login' | 'register';
@@ -8,11 +9,197 @@ type ExtMode = 'login' | 'register';
 const GRADE_OPTIONS = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
 const SUBJECT_OPTIONS = ['Mathematics','Physics','Chemistry','Biology','English','Hindi','History','Geography','Social Science','Computer Science','Economics'];
 
+// ── Password strength ─────────────────────────────────────────────────────────
+
+function pwStrength(pw: string): { score: number; label: string; color: string; bg: string } {
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[a-z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(pw)) score++;
+  if (score <= 1) return { score, label: 'Weak', color: 'text-red-500', bg: 'bg-red-400' };
+  if (score === 2) return { score, label: 'Fair', color: 'text-orange-500', bg: 'bg-orange-400' };
+  if (score === 3) return { score, label: 'Good', color: 'text-yellow-500', bg: 'bg-yellow-400' };
+  return { score, label: 'Strong', color: 'text-green-600', bg: 'bg-green-500' };
+}
+
+function PasswordStrengthBar({ password }: { password: string }) {
+  if (!password) return null;
+  const { score, label, color, bg } = pwStrength(password);
+  const pct = (score / 5) * 100;
+  return (
+    <div className="mt-1.5">
+      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-300 ${bg}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className={`text-xs mt-0.5 font-medium ${color}`}>{label}</p>
+    </div>
+  );
+}
+
+// ── Field validators (client-side mirror of backend) ──────────────────────────
+
+function validateName(v: string): string {
+  if (v.length < 2) return 'At least 2 characters required.';
+  if (!/^[A-Za-z\s.\-']+$/.test(v.trim())) return 'Letters, spaces, hyphens, apostrophes only.';
+  return '';
+}
+function validateMobile(v: string): string {
+  const clean = v.replace(/[\s\-\(\)\+]/g, '').replace(/^91(\d{10})$/, '$1');
+  if (!/^[6-9]\d{9}$/.test(clean)) return 'Valid 10-digit Indian number required.';
+  return '';
+}
+function validateCity(v: string): string {
+  if (!v) return '';
+  if (!/^[A-Za-z\s.\-']+$/.test(v.trim())) return 'Letters and spaces only.';
+  return '';
+}
+
+// ── Inline field error ─────────────────────────────────────────────────────────
+
+const FieldError: React.FC<{ msg: string }> = ({ msg }) =>
+  msg ? <p className="text-xs text-red-500 mt-0.5">{msg}</p> : null;
+
+// ── Trial badge ───────────────────────────────────────────────────────────────
+
+const TrialBadge: React.FC<{ color?: string }> = ({ color = 'indigo' }) => (
+  <div className={`flex items-center gap-2 bg-${color}-50 border border-${color}-200 rounded-xl px-3 py-2 text-xs`}>
+    <span className="text-base">🎁</span>
+    <span className={`text-${color}-700 font-medium`}>
+      <strong>7-day free trial</strong> included — no credit card required
+    </span>
+  </div>
+);
+
+// ── Forgot / Reset inline flow ────────────────────────────────────────────────
+
+const ForgotPasswordInline: React.FC<{ accentColor: string; onBack: () => void }> = ({ accentColor, onBack }) => {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setErr(''); setLoading(true);
+    try { await apiForgotPassword(email); } catch { /* always show success */ }
+    finally { setLoading(false); setDone(true); }
+  };
+
+  if (done) return (
+    <div className="text-center py-4 space-y-3">
+      <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-2xl">✉️</div>
+      <p className="font-semibold text-slate-800">Check your email</p>
+      <p className="text-xs text-slate-500">If an account with <strong>{email}</strong> exists, a reset link has been sent (valid 1 hour).</p>
+      <button onClick={onBack} className="text-xs text-blue-600 hover:underline">← Back to sign in</button>
+    </div>
+  );
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="text-sm text-slate-600">Enter your email to receive a password reset link.</p>
+      <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+        placeholder="you@email.com"
+        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400" />
+      {err && <p className="text-xs text-red-500">{err}</p>}
+      <button type="submit" disabled={loading}
+        className={`w-full py-3 rounded-xl font-bold text-sm text-white bg-${accentColor}-600 hover:bg-${accentColor}-700 flex items-center justify-center gap-2 ${loading ? 'opacity-70' : ''}`}>
+        {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Sending...</> : 'Send Reset Link'}
+      </button>
+      <button type="button" onClick={onBack} className="w-full text-xs text-slate-400 hover:text-slate-600">← Back to sign in</button>
+    </form>
+  );
+};
+
+// ── Reset password page (shown when ?token= is in URL) ────────────────────────
+
+const ResetPasswordForm: React.FC<{ token: string }> = ({ token }) => {
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pw !== pw2) { setErr('Passwords do not match.'); return; }
+    setErr(''); setLoading(true);
+    try {
+      await apiResetPassword(token, pw);
+      setDone(true);
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch (ex: any) {
+      setErr(ex.message || 'Invalid or expired reset link. Please request a new one.');
+    } finally { setLoading(false); }
+  };
+
+  if (done) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center space-y-4">
+        <div className="mx-auto w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-3xl">✅</div>
+        <h2 className="text-xl font-bold text-slate-900">Password updated!</h2>
+        <p className="text-sm text-slate-500">You can now sign in with your new password.</p>
+        <button onClick={() => window.history.replaceState({}, '', window.location.pathname)}
+          className="w-full py-3 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700">
+          Go to Sign In
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full space-y-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <i className="ri-lock-password-line text-white text-lg" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Set new password</h2>
+            <p className="text-xs text-slate-500">System4Learn</p>
+          </div>
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">New Password</label>
+            <input type="password" required value={pw} onChange={e => setPw(e.target.value)}
+              placeholder="Min 8 chars, uppercase, number, symbol"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400" />
+            <PasswordStrengthBar password={pw} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Confirm Password</label>
+            <input type="password" required value={pw2} onChange={e => setPw2(e.target.value)}
+              placeholder="Repeat new password"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400" />
+            {pw2 && pw !== pw2 && <p className="text-xs text-red-500 mt-0.5">Passwords don't match.</p>}
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>}
+          <button type="submit" disabled={loading}
+            className={`w-full py-3 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 ${loading ? 'opacity-70' : ''}`}>
+            {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Updating...</> : 'Update Password'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ── Main LoginPage ────────────────────────────────────────────────────────────
+
 const LoginPage: React.FC = () => {
   const { login, setShowLoginPage, openForgotPasswordModal, institutes, loginExternal, registerExternalParent, registerExternalStudent, roleConfigs } = useAppContext();
 
+  // Check for password reset token in URL
+  const urlToken = new URLSearchParams(window.location.search).get('token');
+  if (urlToken) return <ResetPasswordForm token={urlToken} />;
+
   const [activeTab, setActiveTab]   = useState<LoginTab>('institute');
   const [extMode, setExtMode]       = useState<ExtMode>('login');
+  const [showForgotExt, setShowForgotExt] = useState(false);
 
   // Institute login
   const [instituteName, setInstituteName] = useState(institutes[0]?.name || '');
@@ -38,6 +225,9 @@ const LoginPage: React.FC = () => {
   const [regSubjects, setRegSubjects] = useState<string[]>([]);
   const [regSchool, setRegSchool]   = useState('');
 
+  // Validation touched state
+  const [touched, setTouched] = useState({ name: false, mobile: false, city: false });
+
   useEffect(() => {
     if (institutes.length > 0 && !instituteName) setInstituteName(institutes[0].name);
   }, [institutes]);
@@ -52,6 +242,8 @@ const LoginPage: React.FC = () => {
     setExtEmail(''); setExtPwd(''); setExtError('');
     setRegName(''); setRegMobile(''); setRegCity('');
     setRegGrade('Class 10'); setRegAge('15'); setRegSubjects([]); setRegSchool('');
+    setTouched({ name: false, mobile: false, city: false });
+    setShowForgotExt(false);
   };
 
   // ── Institute login ──
@@ -76,7 +268,7 @@ const LoginPage: React.FC = () => {
     setExtError(''); setExtLoading(true);
     try {
       const result = await loginExternal(extEmail, extPwd);
-      if (!result) setExtError('Invalid email or password, or the server is unreachable. Please try again.');
+      if (!result) setExtError('Invalid email or password. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -84,7 +276,12 @@ const LoginPage: React.FC = () => {
 
   // ── External register (parent) ──
   const handleRegParent = async () => {
-    if (!regName || !extEmail || !extPwd || !regMobile) { setExtError('Please fill all required fields.'); return; }
+    const nameErr = validateName(regName);
+    const mobileErr = validateMobile(regMobile);
+    const cityErr = validateCity(regCity);
+    setTouched({ name: true, mobile: true, city: true });
+    if (nameErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
+    if (!extEmail || !extPwd) { setExtError('Email and password are required.'); return; }
     setExtError(''); setExtLoading(true);
     try {
       const ok = await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
@@ -96,7 +293,12 @@ const LoginPage: React.FC = () => {
 
   // ── External register (student) ──
   const handleRegStudent = async () => {
-    if (!regName || !extEmail || !extPwd) { setExtError('Please fill all required fields.'); return; }
+    const nameErr = validateName(regName);
+    const mobileErr = regMobile ? validateMobile(regMobile) : '';
+    const cityErr = validateCity(regCity);
+    setTouched({ name: true, mobile: true, city: true });
+    if (nameErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
+    if (!extEmail || !extPwd) { setExtError('Email and password are required.'); return; }
     setExtError(''); setExtLoading(true);
     try {
       const ok = await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
@@ -113,42 +315,17 @@ const LoginPage: React.FC = () => {
     { id: 'student',   label: 'Student',     icon: '🎓', desc: 'Self-learning platform',       color: 'hover:border-violet-300', activeColor: 'border-violet-500 bg-violet-600 text-white' },
   ];
 
-  const renderExtLoginForm = (type: LoginTab) => (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address</label>
-        <input type="email" value={extEmail} onChange={e => setExtEmail(e.target.value)}
-          placeholder="you@email.com"
-          className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400" />
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
-        <div className="relative">
-          <input type={extShowPwd ? 'text' : 'password'} value={extPwd} onChange={e => setExtPwd(e.target.value)}
-            placeholder="••••••••"
-            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 pr-12" />
-          <button type="button" onClick={() => setExtShowPwd(!extShowPwd)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium">
-            {extShowPwd ? 'Hide' : 'Show'}
-          </button>
-        </div>
-      </div>
-      {extError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{extError}</p>}
-      <button onClick={handleExtLogin} disabled={extLoading}
-        className={`w-full py-3 rounded-xl font-bold text-sm text-white transition-colors flex items-center justify-center gap-2
-          ${type === 'parent' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-violet-600 hover:bg-violet-700'}
-          ${extLoading ? 'opacity-70' : ''}`}>
-        {extLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</> : 'Sign In'}
-      </button>
-    </div>
-  );
-
-  const renderRegisterCommon = () => (
+  // ── Register common fields with inline validation ──
+  const renderRegisterCommon = (requireMobile = true) => (
     <>
       <div>
         <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name *</label>
-        <input type="text" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Your full name"
-          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
+        <input type="text" value={regName}
+          onChange={e => setRegName(e.target.value)}
+          onBlur={() => setTouched(t => ({ ...t, name: true }))}
+          placeholder="Your full name"
+          className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-indigo-400 ${touched.name && validateName(regName) ? 'border-red-300 bg-red-50' : 'border-slate-200'}`} />
+        {touched.name && <FieldError msg={validateName(regName)} />}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -160,22 +337,70 @@ const LoginPage: React.FC = () => {
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password *</label>
           <input type="password" value={extPwd} onChange={e => setExtPwd(e.target.value)} placeholder="Create password"
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
+          <PasswordStrengthBar password={extPwd} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Mobile</label>
-          <input type="tel" value={regMobile} onChange={e => setRegMobile(e.target.value)} placeholder="9900001234"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Mobile{requireMobile ? ' *' : ''}</label>
+          <input type="tel" value={regMobile}
+            onChange={e => setRegMobile(e.target.value)}
+            onBlur={() => setTouched(t => ({ ...t, mobile: true }))}
+            placeholder="9900001234"
+            className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400 ${touched.mobile && validateMobile(regMobile) ? 'border-red-300 bg-red-50' : 'border-slate-200'}`} />
+          {touched.mobile && <FieldError msg={validateMobile(regMobile)} />}
         </div>
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5">City</label>
-          <input type="text" value={regCity} onChange={e => setRegCity(e.target.value)} placeholder="Mumbai"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
+          <input type="text" value={regCity}
+            onChange={e => setRegCity(e.target.value)}
+            onBlur={() => setTouched(t => ({ ...t, city: true }))}
+            placeholder="Mumbai"
+            className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400 ${touched.city && validateCity(regCity) ? 'border-red-300 bg-red-50' : 'border-slate-200'}`} />
+          {touched.city && <FieldError msg={validateCity(regCity)} />}
         </div>
       </div>
     </>
   );
+
+  const renderExtLoginForm = (type: LoginTab, accentColor: string) => {
+    if (showForgotExt) {
+      return <ForgotPasswordInline accentColor={accentColor} onBack={() => setShowForgotExt(false)} />;
+    }
+    return (
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address</label>
+          <input type="email" value={extEmail} onChange={e => setExtEmail(e.target.value)}
+            placeholder="you@email.com"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400" />
+        </div>
+        <div>
+          <div className="flex justify-between mb-1.5">
+            <label className="text-xs font-semibold text-slate-600">Password</label>
+            <button type="button" onClick={() => setShowForgotExt(true)}
+              className={`text-xs text-${accentColor}-600 hover:underline font-medium`}>Forgot password?</button>
+          </div>
+          <div className="relative">
+            <input type={extShowPwd ? 'text' : 'password'} value={extPwd} onChange={e => setExtPwd(e.target.value)}
+              placeholder="••••••••"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 pr-12" />
+            <button type="button" onClick={() => setExtShowPwd(!extShowPwd)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium">
+              {extShowPwd ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+        {extError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{extError}</p>}
+        <button onClick={handleExtLogin} disabled={extLoading}
+          className={`w-full py-3 rounded-xl font-bold text-sm text-white transition-colors flex items-center justify-center gap-2
+            ${type === 'parent' ? `bg-${accentColor}-600 hover:bg-${accentColor}-700` : `bg-${accentColor}-600 hover:bg-${accentColor}-700`}
+            ${extLoading ? 'opacity-70' : ''}`}>
+          {extLoading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</> : 'Sign In'}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -189,7 +414,6 @@ const LoginPage: React.FC = () => {
           <span className="text-xl font-bold">System4Learn</span>
         </div>
 
-        {/* Tab Highlights */}
         <div className="space-y-4">
           <h2 className="text-2xl font-black leading-tight">One platform,<br />three gateways.</h2>
           {[
@@ -205,6 +429,11 @@ const LoginPage: React.FC = () => {
               </div>
             </div>
           ))}
+          {/* Password policy hint */}
+          <div className="bg-white/10 rounded-xl px-4 py-3 text-xs text-indigo-200 space-y-1">
+            <p className="font-semibold text-white">Password requirements</p>
+            <p>Min 8 chars · Uppercase · Lowercase · Number · Special char</p>
+          </div>
         </div>
 
         {/* Demo credentials */}
@@ -328,28 +557,33 @@ const LoginPage: React.FC = () => {
           {activeTab === 'parent' && (
             <div className="space-y-4">
               {/* Login / Register toggle */}
-              <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
-                {(['login', ...(parentRegOpen ? ['register'] : [])] as ExtMode[]).map(m => (
-                  <button key={m} onClick={() => { setExtMode(m); resetExt(); }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${extMode === m ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
-                    {m === 'login' ? '🔑 Sign In' : '✨ Register Free'}
-                  </button>
-                ))}
-              </div>
+              {!showForgotExt && (
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                  {(['login', ...(parentRegOpen ? ['register'] : [])] as ExtMode[]).map(m => (
+                    <button key={m} onClick={() => { setExtMode(m); resetExt(); }}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${extMode === m ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500'}`}>
+                      {m === 'login' ? '🔑 Sign In' : '✨ Register Free'}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm">
-                <p className="font-semibold text-indigo-800">👨‍👩‍👧 External Parent Portal</p>
-                <p className="text-xs text-indigo-600 mt-0.5">Independent of any institute — manage your children's learning with AI tools</p>
-              </div>
+              {!showForgotExt && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 text-sm">
+                  <p className="font-semibold text-indigo-800">👨‍👩‍👧 External Parent Portal</p>
+                  <p className="text-xs text-indigo-600 mt-0.5">Independent of any institute — manage your children's learning with AI tools</p>
+                </div>
+              )}
 
               {extMode === 'login' ? (
                 <>
-                  {renderExtLoginForm('parent')}
-                  <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / parent123</p>
+                  {renderExtLoginForm('parent', 'indigo')}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / parent123</p>}
                 </>
               ) : (
                 <div className="space-y-3">
-                  {renderRegisterCommon()}
+                  <TrialBadge color="indigo" />
+                  {renderRegisterCommon(true)}
                   {extError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{extError}</p>}
                   <button onClick={handleRegParent} disabled={extLoading}
                     className={`w-full py-3 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 ${extLoading ? 'opacity-70' : ''}`}>
@@ -364,28 +598,33 @@ const LoginPage: React.FC = () => {
           {activeTab === 'student' && (
             <div className="space-y-4">
               {/* Login / Register toggle */}
-              <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
-                {(['login', ...(studentRegOpen ? ['register'] : [])] as ExtMode[]).map(m => (
-                  <button key={m} onClick={() => { setExtMode(m); resetExt(); }}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${extMode === m ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500'}`}>
-                    {m === 'login' ? '🔑 Sign In' : '✨ Register Free'}
-                  </button>
-                ))}
-              </div>
+              {!showForgotExt && (
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                  {(['login', ...(studentRegOpen ? ['register'] : [])] as ExtMode[]).map(m => (
+                    <button key={m} onClick={() => { setExtMode(m); resetExt(); }}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${extMode === m ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500'}`}>
+                      {m === 'login' ? '🔑 Sign In' : '✨ Register Free'}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3">
-                <p className="font-semibold text-violet-800 text-sm">🎓 External Student Platform</p>
-                <p className="text-xs text-violet-600 mt-0.5">AI quizzes, study challenges, public library, progress tracking — completely independent</p>
-              </div>
+              {!showForgotExt && (
+                <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3">
+                  <p className="font-semibold text-violet-800 text-sm">🎓 External Student Platform</p>
+                  <p className="text-xs text-violet-600 mt-0.5">AI quizzes, study challenges, public library, progress tracking — completely independent</p>
+                </div>
+              )}
 
               {extMode === 'login' ? (
                 <>
-                  {renderExtLoginForm('student')}
-                  <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / student123</p>
+                  {renderExtLoginForm('student', 'violet')}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / student123</p>}
                 </>
               ) : (
                 <div className="space-y-3">
-                  {renderRegisterCommon()}
+                  <TrialBadge color="violet" />
+                  {renderRegisterCommon(false)}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Grade *</label>

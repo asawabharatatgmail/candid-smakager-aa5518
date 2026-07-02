@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useMemo, useEffect, useCall
 import { UserRole, Quiz, QuizSubmission, Branch, User, Student, Teacher, Parent, AcademicClass, Subject, FlashcardSet, ManagementCategory, AppSettings, AiProviderConfig, ThemeSettings, Status, StudyMaterial, Lead, LeadStatus, Institute, SubscriptionSettings, AttendanceRecord, ScheduleEvent, AiSchedulerRule, Reminder, EmailTemplate, FeeStructure, Discount, StudentFeeProfile, Installment, FeeReceipt, Video, UploadedDocument, QuizType, Notification, FeeStructureInstallment, Note, GameChallenge, GameChallengeMode, ChallengeSubmission, GameLevel, GoogleAdCampaign, EmailCampaign, SocialPost, CampaignStatus, ChatMessage, SubscriptionPackage, Addon, FeatureKey, ContextSource, SubscriptionStatus, PersonalAiConfig, LinkedChild, SavedAiContent, ActivitySession, AiProgressReport, ParentPlan, ParentSubscription, RoleConfig, ExternalParent, ExternalChildProfile, ExternalStudent, StudentPlan, StudentSubscription, StudyChallenge, ChallengeParticipation, SharedContent } from '../types';
 import { NAV_LINKS, MANAGEMENT_CONFIG, SUBSCRIPTION_PACKAGES, SUBSCRIPTION_ADDONS } from '../constants';
 import { SEED_INSTITUTES, SEED_BRANCHES, SEED_CLASSES, SEED_SUBJECTS, SEED_USERS, SEED_TEACHERS, SEED_STUDENTS, SEED_SCHEDULE_EVENTS, SEED_LEADS, SEED_FEE_STRUCTURES, SEED_DISCOUNTS, SEED_STUDENT_FEE_PROFILES, SEED_FEE_RECEIPTS, SEED_VERSION, SEED_LINKED_CHILDREN, SEED_PERSONAL_AI_CONFIGS, SEED_SAVED_AI_CONTENT, SEED_ACTIVITY_SESSIONS, SEED_AI_PROGRESS_REPORTS, SEED_PARENT_PLANS, SEED_PARENT_SUBSCRIPTIONS, SEED_ROLE_CONFIGS, SEED_EXTERNAL_PARENTS, SEED_EXTERNAL_CHILDREN, SEED_EXTERNAL_STUDENTS, SEED_STUDENT_PLANS, SEED_STUDENT_SUBSCRIPTIONS, SEED_STUDY_CHALLENGES, SEED_CHALLENGE_PARTICIPATIONS, SEED_SHARED_CONTENT } from '../data/seedData';
-import { generateSchedule, generateGameLevels } from '../services/apiClient';
+import { generateSchedule, generateGameLevels, forgotPassword as apiForgotPassword } from '../services/apiClient';
 import { apiListChildren, apiGetAiConfig, apiListAiContent } from '../services/externalDataApi';
 import { apiCreateInstituteRecord, apiUpdateInstituteRecord, apiDeleteInstituteRecord, apiListInstituteRecords, isSyncableCategory } from '../services/institutionApi';
 import { apiListFeeStructures, apiCreateFeeStructure, apiDeleteFeeStructure, apiListDiscounts, apiCreateDiscount, apiDeleteDiscount, apiCreateLeadReminder, apiListEmailTemplates, apiCreateEmailTemplate, apiDeleteEmailTemplate, apiListFeeProfiles, apiCreateFeeProfile, apiRecordPayment } from '../services/feesLeadsApi';
@@ -1703,8 +1703,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const openForgotPasswordModal = useCallback(() => setForgotPasswordModalOpen(true), []);
     const closeForgotPasswordModal = useCallback(() => setForgotPasswordModalOpen(false), []);
     const requestPasswordReset = useCallback(async (identifier: string): Promise<boolean> => {
-        console.log(`Password reset requested for: ${identifier}`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            await apiForgotPassword(identifier);
+        } catch {
+            // Always return true — backend also always returns 202 to prevent enumeration
+        }
         return true;
     }, []);
     

@@ -478,6 +478,16 @@ export const explainText = async (text: string): Promise<string> => {
 
 // ── Video Finder ──────────────────────────────────────────────────────────────
 
+// ── Auth: Forgot / Reset Password ────────────────────────────────────────────
+
+export const forgotPassword = async (email: string): Promise<void> => {
+  await post('/api/auth/forgot-password', { email });
+};
+
+export const resetPassword = async (token: string, newPassword: string): Promise<void> => {
+  await post('/api/auth/reset-password', { token, new_password: newPassword });
+};
+
 export const findEducationalVideos = async (
   topic: string, gradeLevel: string
 ): Promise<{ title: string; url: string }[] | null> => {
