@@ -2,7 +2,7 @@ name: Build Student Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/student-mobile-app]
     paths:
       - 'student-mobile/**'
       - '.github/workflows/build-student-apk.yml'
