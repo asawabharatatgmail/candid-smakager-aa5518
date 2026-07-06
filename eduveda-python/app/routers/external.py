@@ -16,6 +16,7 @@ from ..models.auth import (
     trial_expiry, subscription_days_remaining,
     send_password_reset_email, send_trial_welcome_email,
 )
+from ..services import claude_service
 
 router = APIRouter(prefix="/api/external", tags=["external"])
 
@@ -238,3 +239,35 @@ async def login_external(req: ExternalLoginRequest):
 @router.get("/me")
 async def get_external_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+
+# ── Student AI Study Help ──────────────────────────────────────────────────
+
+class AIHelpRequest(BaseModel):
+    question: str
+    subject: Optional[str] = None
+
+
+@router.post("/student/ai-help")
+async def student_ai_help(req: AIHelpRequest, current_user: dict = Depends(get_current_user)):
+    _check_subscription(current_user, "Student")
+
+    if not req.question or not req.question.strip():
+        raise HTTPException(status_code=422, detail="Question cannot be empty.")
+    if len(req.question) > 2000:
+        raise HTTPException(status_code=422, detail="Question is too long (max 2000 characters).")
+
+    subject_ctx = f" in {req.subject}" if req.subject else ""
+    prompt = (
+        f"You are a helpful, encouraging AI tutor for students. "
+        f"Answer the following academic question{subject_ctx} clearly and thoroughly. "
+        f"Use simple language, break down complex ideas step by step, and include examples where helpful. "
+        f"Keep the answer focused and educational.\n\nQuestion: {req.question.strip()}"
+    )
+
+    try:
+        answer = await claude_service.simple_answer(prompt)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"AI service unavailable: {exc}")
+
+    return {"answer": answer}

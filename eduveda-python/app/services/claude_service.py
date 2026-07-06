@@ -358,6 +358,17 @@ async def explain_text(text: str) -> str:
 
 # ─── Google Apps Script Generator ────────────────────────────────────────────
 
+async def simple_answer(prompt: str) -> str:
+    """Generic single-turn AI answer — used by the student mobile app AI tutor."""
+    _require_client()
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return message.content[0].text.strip()
+
+
 async def generate_lead_form_script(fields: list[str]) -> dict:
     _require_client()
     prompt = f"""Generate Google Apps Script code for a web-based lead capture form.
