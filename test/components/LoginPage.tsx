@@ -6,6 +6,7 @@ import { forgotPassword as apiForgotPassword, resetPassword as apiResetPassword 
 type LoginTab = 'institute' | 'parent' | 'student';
 type ExtMode = 'login' | 'register';
 
+const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const GRADE_OPTIONS = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
 const SUBJECT_OPTIONS = ['Mathematics','Physics','Chemistry','Biology','English','Hindi','History','Geography','Social Science','Computer Science','Economics'];
 
@@ -236,6 +237,11 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     if (institutes.length > 0 && !instituteName) setInstituteName(institutes[0].name);
   }, [institutes]);
+
+  // Wake up the Render backend on mount so it's warm before the user submits
+  useEffect(() => {
+    fetch(`${PYTHON_API}/health`, { method: 'GET' }).catch(() => {});
+  }, []);
 
   const parentRegOpen  = roleConfigs.find(rc => rc.role === 'External Parent')?.registrationOpen ?? true;
   const studentRegOpen = roleConfigs.find(rc => rc.role === 'External Student')?.registrationOpen ?? true;
