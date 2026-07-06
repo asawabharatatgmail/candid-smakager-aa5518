@@ -63,8 +63,8 @@ async function get<T>(path: string): Promise<T> {
 export const api = {
   ping: () => fetch(`${BASE}/health`).catch(() => {}),
 
-  register: (name: string, email: string, password: string, mobile: string) =>
-    post<AuthResponse>('/api/external/student/register', { name, email, password, mobile }),
+  register: (name: string, email: string, password: string, mobile: string, grade = 'General') =>
+    post<AuthResponse>('/api/external/student/register', { name, email, password, mobile: mobile || undefined, grade }),
 
   login: (email: string, password: string) =>
     post<AuthResponse>('/api/external/student/login', { email, password }),

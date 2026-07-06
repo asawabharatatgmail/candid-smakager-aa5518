@@ -127,8 +127,8 @@ class ExternalStudentRegister(BaseModel):
     email: EmailStr
     password: str
     mobile: Optional[str] = None
-    grade: str
-    age: int
+    grade: Optional[str] = "General"
+    age: Optional[int] = 15
     subjects_of_interest: List[str] = []
     school_name: Optional[str] = None
     city: Optional[str] = None
@@ -152,7 +152,7 @@ async def register_external_student(data: ExternalStudentRegister, bg: Backgroun
         err = validate_city(data.city)
         if err: errors.append(f"City: {err}")
 
-    if data.age < 5 or data.age > 30:
+    if data.age is not None and (data.age < 5 or data.age > 30):
         errors.append("Age: Must be between 5 and 30.")
 
     if errors:

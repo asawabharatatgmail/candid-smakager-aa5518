@@ -19,6 +19,7 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
   const [remail, setRemail] = useState('');
   const [rpass, setRpass] = useState('');
   const [rmobile, setRmobile] = useState('');
+  const [rgrade, setRgrade] = useState('Class 10');
 
   useEffect(() => {
     // Warm up the backend on mount
@@ -49,14 +50,14 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (!rname || !remail || !rpass || !rmobile) {
-      showToast('Please fill in all fields', 'error');
+    if (!rname || !remail || !rpass) {
+      showToast('Please fill in name, email and password', 'error');
       return;
     }
     if (rpass.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
     setLoading(true);
     try {
-      const resp = await api.register(rname.trim(), remail.trim(), rpass, rmobile.trim());
+      const resp = await api.register(rname.trim(), remail.trim(), rpass, rmobile.trim(), rgrade);
       saveSession(resp);
       showToast(`Welcome, ${resp.user.name.split(' ')[0]}! Your 7-day trial has started.`, 'success');
       setTimeout(onAuth, 600);
@@ -152,17 +153,32 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
               onChange={e => setRemail(e.target.value)}
             />
           </div>
-          <div>
-            <label className="field-label">Mobile Number</label>
-            <input
-              className="field-input"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="+91 98765 43210"
-              value={rmobile}
-              onChange={e => setRmobile(e.target.value)}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="field-label">Mobile (optional)</label>
+              <input
+                className="field-input"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="98765 43210"
+                value={rmobile}
+                onChange={e => setRmobile(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="field-label">Grade</label>
+              <select
+                className="field-input"
+                value={rgrade}
+                onChange={e => setRgrade(e.target.value)}
+                style={{ cursor: 'pointer' }}
+              >
+                {['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6',
+                  'Class 7','Class 8','Class 9','Class 10','Class 11','Class 12',
+                  'College','Other'].map(g => <option key={g}>{g}</option>)}
+              </select>
+            </div>
           </div>
           <div>
             <label className="field-label">Password</label>
