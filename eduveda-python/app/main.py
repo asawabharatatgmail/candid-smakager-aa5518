@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+import traceback
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from .config.settings import settings
 from .routers.auth import router as auth_router
 from .routers.institutes import router as institutes_router
@@ -28,6 +30,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    print(f"Unhandled error on {request.method} {request.url}:\n{tb}")
+    detail = str(exc) if str(exc) else "An unexpected server error occurred."
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 # Register all routers
 app.include_router(auth_router)
