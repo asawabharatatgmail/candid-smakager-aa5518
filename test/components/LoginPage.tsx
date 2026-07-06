@@ -298,7 +298,10 @@ const LoginPage: React.FC = () => {
     try {
       await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
     } catch (e: any) {
-      setExtError(e?.message || 'Registration failed. Please try again.');
+      const msg = e?.message || '';
+      setExtError(msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
+        ? 'Server is starting up — your request is being retried automatically. Please wait a moment…'
+        : msg || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -317,7 +320,10 @@ const LoginPage: React.FC = () => {
     try {
       await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
     } catch (e: any) {
-      setExtError(e?.message || 'Registration failed. Please try again.');
+      const msg = e?.message || '';
+      setExtError(msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
+        ? 'Server is starting up — your request is being retried automatically. Please wait a moment…'
+        : msg || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }

@@ -1265,11 +1265,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const rc = roleConfigs.find(rc => rc.role === UserRole.ExternalParent);
         if (!rc?.isActive || !rc?.registrationOpen) return false;
         try {
-            const res = await fetch(`${PYTHON_API}/api/external/parent/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: data.name, email: data.email, password: data.password, mobile: data.mobile, city: data.city }),
+            const payload = JSON.stringify({ name: data.name, email: data.email, password: data.password, mobile: data.mobile, city: data.city });
+            const doFetch = () => fetch(`${PYTHON_API}/api/external/parent/register`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
             });
+            let res: Response;
+            try {
+                res = await doFetch();
+            } catch {
+                await new Promise(r => setTimeout(r, 8000));
+                res = await doFetch();
+            }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body.detail || 'Registration failed. Please try again.');
@@ -1296,15 +1302,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const rc = roleConfigs.find(rc => rc.role === UserRole.ExternalStudent);
         if (!rc?.isActive || !rc?.registrationOpen) return false;
         try {
-            const res = await fetch(`${PYTHON_API}/api/external/student/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: data.name, email: data.email, password: data.password, mobile: data.mobile,
-                    grade: data.grade, age: data.age, subjects_of_interest: data.subjectsOfInterest,
-                    school_name: data.schoolName, city: data.city,
-                }),
+            const payload = JSON.stringify({
+                name: data.name, email: data.email, password: data.password, mobile: data.mobile,
+                grade: data.grade, age: data.age, subjects_of_interest: data.subjectsOfInterest,
+                school_name: data.schoolName, city: data.city,
             });
+            const doFetch = () => fetch(`${PYTHON_API}/api/external/student/register`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
+            });
+            let res: Response;
+            try {
+                res = await doFetch();
+            } catch {
+                // Network error — backend likely cold-starting; wait 8s and retry once
+                await new Promise(r => setTimeout(r, 8000));
+                res = await doFetch();
+            }
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body.detail || 'Registration failed. Please try again.');
