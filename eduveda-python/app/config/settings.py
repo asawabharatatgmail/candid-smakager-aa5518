@@ -24,9 +24,19 @@ class Settings(BaseSettings):
     # Trial duration in days (new registrations)
     trial_days: int = 7
 
+    # These are always allowed regardless of the CORS_ORIGINS env var
+    _ALWAYS_ALLOWED = [
+        "https://system4learn.com",
+        "https://candid-smakager-aa5518.netlify.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ]
+
     @property
     def cors_origins_list(self) -> List[str]:
-        return [o.strip() for o in self.cors_origins.split(",")]
+        from_env = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        combined = list(dict.fromkeys(self._ALWAYS_ALLOWED + from_env))
+        return combined
 
     class Config:
         env_file = ".env"
