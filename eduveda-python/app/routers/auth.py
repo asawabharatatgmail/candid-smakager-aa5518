@@ -29,9 +29,9 @@ async def login(req: LoginRequest):
     table_name = None
 
     for table in ["users", "students", "teachers", "parents"]:
-        result = supabase.table(table).select("*").eq("email", req.email).maybe_single().execute()
+        result = supabase.table(table).select("*").eq("email", req.email).limit(1).execute()
         if result.data:
-            user = result.data
+            user = result.data[0]
             table_name = table
             break
 
@@ -43,10 +43,10 @@ async def login(req: LoginRequest):
 
     # Check institute trial/subscription status for institute users
     if table_name == "users" and user.get("institute_id"):
-        inst = supabase.table("institutes").select("subscription_status,subscription_expiry,subscription_expiry_ts").eq("id", user["institute_id"]).maybe_single().execute()
+        inst = supabase.table("institutes").select("subscription_status,subscription_expiry,subscription_expiry_ts").eq("id", user["institute_id"]).limit(1).execute()
         if inst.data:
-            sub = inst.data.get("subscription_status", "inactive")
-            expiry = inst.data.get("subscription_expiry_ts") or inst.data.get("subscription_expiry")
+            sub = inst.data[0].get("subscription_status", "inactive")
+            expiry = inst.data[0].get("subscription_expiry_ts") or inst.data[0].get("subscription_expiry")
             if sub == "trial" and expiry:
                 from ..models.auth import subscription_days_remaining
                 days_left = subscription_days_remaining(str(expiry))
@@ -162,7 +162,7 @@ async def forgot_password(req: ForgotPasswordRequest, bg: BackgroundTasks):
         ("external_parents",  "external_parent"),
         ("external_students", "external_student"),
     ]:
-        result = supabase.table(table).select("id").eq("email", email).maybe_single().execute()
+        result = supabase.table(table).select("id").eq("email", email).limit(1).execute()
         if result.data:
             account_type = atype
             break
@@ -192,7 +192,7 @@ async def reset_password(req: ResetPasswordRequest):
     if not table:
         raise HTTPException(status_code=400, detail="Invalid account type in reset token.")
 
-    result = supabase.table(table).select("id").eq("email", email).maybe_single().execute()
+    result = supabase.table(table).select("id").eq("email", email).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Account not found.")
 

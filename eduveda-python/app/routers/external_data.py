@@ -40,8 +40,9 @@ async def create_child(data: ChildProfileCreate, current_user: dict = Depends(ge
 
 @router.put("/children/{child_id}")
 async def update_child(child_id: str, data: ChildProfileCreate, current_user: dict = Depends(get_current_user)):
-    existing = supabase.table("external_child_profiles").select("parent_id").eq("id", child_id).maybe_single().execute()
-    if not existing.data or existing.data["parent_id"] != current_user["id"]:
+    existing = supabase.table("external_child_profiles").select("parent_id").eq("id", child_id).limit(1).execute()
+    row = existing.data[0] if existing.data else None
+    if not row or row["parent_id"] != current_user["id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Child not found")
     result = supabase.table("external_child_profiles").update(data.model_dump()).eq("id", child_id).execute()
     return result.data[0]
@@ -49,8 +50,9 @@ async def update_child(child_id: str, data: ChildProfileCreate, current_user: di
 
 @router.delete("/children/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_child(child_id: str, current_user: dict = Depends(get_current_user)):
-    existing = supabase.table("external_child_profiles").select("parent_id").eq("id", child_id).maybe_single().execute()
-    if not existing.data or existing.data["parent_id"] != current_user["id"]:
+    existing = supabase.table("external_child_profiles").select("parent_id").eq("id", child_id).limit(1).execute()
+    row = existing.data[0] if existing.data else None
+    if not row or row["parent_id"] != current_user["id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Child not found")
     supabase.table("external_child_profiles").delete().eq("id", child_id).execute()
 
@@ -71,8 +73,8 @@ class AiConfigUpsert(BaseModel):
 
 @router.get("/ai-config")
 async def get_ai_config(current_user: dict = Depends(get_current_user)):
-    result = supabase.table("personal_ai_configs").select("*").eq("owner_id", current_user["id"]).maybe_single().execute()
-    return result.data
+    result = supabase.table("personal_ai_configs").select("*").eq("owner_id", current_user["id"]).limit(1).execute()
+    return result.data[0] if result.data else None
 
 
 @router.put("/ai-config")
@@ -108,8 +110,8 @@ async def create_ai_content(data: AiContentCreate, current_user: dict = Depends(
 
 @router.delete("/ai-content/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_ai_content(content_id: str, current_user: dict = Depends(get_current_user)):
-    existing = supabase.table("saved_ai_content").select("owner_id").eq("id", content_id).maybe_single().execute()
-    if not existing.data or existing.data["owner_id"] != current_user["id"]:
+    existing = supabase.table("saved_ai_content").select("owner_id").eq("id", content_id).limit(1).execute()
+    if not existing.data or existing.data[0]["owner_id"] != current_user["id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
     supabase.table("saved_ai_content").delete().eq("id", content_id).execute()
 
@@ -186,10 +188,10 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
         .select("*")
         .eq("student_id", current_user["id"])
         .eq("status", "active")
-        .maybe_single()
+        .limit(1)
         .execute()
     )
-    return result.data
+    return result.data[0] if result.data else None
 
 
 @router.post("/student-subscriptions", status_code=status.HTTP_201_CREATED)

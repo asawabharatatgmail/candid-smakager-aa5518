@@ -112,16 +112,35 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
+_ROLE_TABLE = {
+    "External Student": "external_students",
+    "External Parent":  "external_parents",
+    "Class Admin":      "users",
+    "Branch Admin":     "users",
+    "Teacher":          "users",
+    "Student":          "users",
+    "Parent":           "users",
+    "Product Owner":    "users",
+}
+
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     payload = decode_token(token)
-    user_id: str = payload.get("sub")
+    user_id: str = payload.get("sub", "")
+    role: str    = payload.get("role", "")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    for table in ["users", "students", "teachers", "parents", "external_parents", "external_students"]:
-        result = supabase.table(table).select("*").eq("id", user_id).maybe_single().execute()
-        if result.data:
-            return {**result.data, "_table": table}
+    # Use role to go directly to the right table — fast single query, no NoneType risk
+    table = _ROLE_TABLE.get(role)
+    tables_to_try = [table] if table else list(dict.fromkeys(_ROLE_TABLE.values()))
+
+    for tbl in tables_to_try:
+        try:
+            result = supabase.table(tbl).select("*").eq("id", user_id).limit(1).execute()
+            if result and result.data:
+                return {**result.data[0], "_table": tbl}
+        except Exception:
+            continue
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
@@ -173,10 +192,10 @@ def consume_reset_token(token: str) -> dict:
         .select("*")
         .eq("token", token)
         .eq("used", False)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
-    row = result.data
+    row = result.data[0] if result.data else None
     if not row:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link. Please request a new one.")
 

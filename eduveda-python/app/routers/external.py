@@ -106,8 +106,8 @@ async def register_external_parent(data: ExternalParentRegister, bg: BackgroundT
 
 @router.post("/parent/login", response_model=TokenResponse)
 async def login_external_parent(req: ExternalLoginRequest):
-    result = supabase.table("external_parents").select("*").eq("email", str(req.email)).maybe_single().execute()
-    user = result.data
+    result = supabase.table("external_parents").select("*").eq("email", str(req.email)).limit(1).execute()
+    user = result.data[0] if result.data else None
     if not user or not verify_password(req.password, user.get("password_hash", "")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if user.get("status") == "inactive":
@@ -187,8 +187,8 @@ async def register_external_student(data: ExternalStudentRegister, bg: Backgroun
 
 @router.post("/student/login", response_model=TokenResponse)
 async def login_external_student(req: ExternalLoginRequest):
-    result = supabase.table("external_students").select("*").eq("email", str(req.email)).maybe_single().execute()
-    user = result.data
+    result = supabase.table("external_students").select("*").eq("email", str(req.email)).limit(1).execute()
+    user = result.data[0] if result.data else None
     if not user or not verify_password(req.password, user.get("password_hash", "")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if user.get("status") == "inactive":
@@ -213,22 +213,24 @@ class CombinedLoginResponse(BaseModel):
 @router.post("/login", response_model=CombinedLoginResponse)
 async def login_external(req: ExternalLoginRequest):
     """Single entry point — tries parent then student."""
-    parent = supabase.table("external_parents").select("*").eq("email", str(req.email)).maybe_single().execute()
-    if parent.data and verify_password(req.password, parent.data.get("password_hash", "")):
-        if parent.data.get("status") == "inactive":
+    parent_res = supabase.table("external_parents").select("*").eq("email", str(req.email)).limit(1).execute()
+    parent = parent_res.data[0] if parent_res.data else None
+    if parent and verify_password(req.password, parent.get("password_hash", "")):
+        if parent.get("status") == "inactive":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
-        _check_subscription(parent.data, "External Parent")
-        token = create_access_token({"sub": parent.data["id"], "role": "External Parent"})
-        safe_user = {k: v for k, v in parent.data.items() if k != "password_hash"}
+        _check_subscription(parent, "External Parent")
+        token = create_access_token({"sub": parent["id"], "role": "External Parent"})
+        safe_user = {k: v for k, v in parent.items() if k != "password_hash"}
         return {"access_token": token, "token_type": "bearer", "user": safe_user, "account_type": "parent"}
 
-    student = supabase.table("external_students").select("*").eq("email", str(req.email)).maybe_single().execute()
-    if student.data and verify_password(req.password, student.data.get("password_hash", "")):
-        if student.data.get("status") == "inactive":
+    student_res = supabase.table("external_students").select("*").eq("email", str(req.email)).limit(1).execute()
+    student = student_res.data[0] if student_res.data else None
+    if student and verify_password(req.password, student.get("password_hash", "")):
+        if student.get("status") == "inactive":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
-        _check_subscription(student.data, "External Student")
-        token = create_access_token({"sub": student.data["id"], "role": "External Student"})
-        safe_user = {k: v for k, v in student.data.items() if k != "password_hash"}
+        _check_subscription(student, "External Student")
+        token = create_access_token({"sub": student["id"], "role": "External Student"})
+        safe_user = {k: v for k, v in student.items() if k != "password_hash"}
         return {"access_token": token, "token_type": "bearer", "user": safe_user, "account_type": "student"}
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
