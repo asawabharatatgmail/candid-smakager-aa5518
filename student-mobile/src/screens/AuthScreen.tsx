@@ -6,9 +6,18 @@ interface Props {
   showToast: (msg: string, type?: 'error' | 'success') => void;
 }
 
+// Loading messages cycling during cold-start wait
+const WAKE_MSGS = [
+  '⏳ Connecting to server…',
+  '🔄 Server is waking up (free tier sleeps when idle)…',
+  '☕ Almost there — first request takes up to 60 seconds…',
+  '✅ Nearly ready…',
+];
+
 export default function AuthScreen({ onAuth, showToast }: Props) {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState('');
 
   // Login fields
   const [lemail, setLemail] = useState('');
@@ -22,9 +31,21 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
   const [rgrade, setRgrade] = useState('Class 10');
 
   useEffect(() => {
-    // Warm up the backend on mount
+    // Warm up backend immediately so it's ready by the time user fills the form
     api.ping();
   }, []);
+
+  // Cycle through wake-up messages every 15s while loading
+  useEffect(() => {
+    if (!loading) { setLoadingMsg(''); return; }
+    let i = 0;
+    setLoadingMsg(WAKE_MSGS[0]);
+    const t = setInterval(() => {
+      i = Math.min(i + 1, WAKE_MSGS.length - 1);
+      setLoadingMsg(WAKE_MSGS[i]);
+    }, 15000);
+    return () => clearInterval(t);
+  }, [loading]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -36,13 +57,7 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
       showToast(`Welcome back, ${resp.user.name.split(' ')[0]}!`, 'success');
       setTimeout(onAuth, 400);
     } catch (err: any) {
-      const msg = err?.message || '';
-      showToast(
-        msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
-          ? 'Server is waking up — please try again in a moment.'
-          : msg || 'Login failed. Please try again.',
-        'error'
-      );
+      showToast(err?.message || 'Login failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -59,16 +74,10 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
     try {
       const resp = await api.register(rname.trim(), remail.trim(), rpass, rmobile.trim(), rgrade);
       saveSession(resp);
-      showToast(`Welcome, ${resp.user.name.split(' ')[0]}! Your 7-day trial has started.`, 'success');
+      showToast(`Welcome, ${resp.user.name.split(' ')[0]}! Your 7-day trial has started. 🎉`, 'success');
       setTimeout(onAuth, 600);
     } catch (err: any) {
-      const msg = err?.message || '';
-      showToast(
-        msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
-          ? 'Server is waking up — retrying automatically…'
-          : msg || 'Registration failed. Please try again.',
-        'error'
-      );
+      showToast(err?.message || 'Registration failed. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,6 +89,26 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
         <div className="auth-logo">System4Learn</div>
         <div className="auth-tagline">AI-Powered Student Learning Platform</div>
       </div>
+
+      {/* Cold-start banner — visible while any request is in flight */}
+      {loading && loadingMsg && (
+        <div style={{
+          margin: '12px 20px 0',
+          padding: '12px 16px',
+          background: 'rgba(124,58,237,0.1)',
+          border: '1px solid rgba(124,58,237,0.25)',
+          borderRadius: 12,
+          fontSize: 13,
+          color: 'var(--primary-l)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          lineHeight: 1.4,
+        }}>
+          <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2, flexShrink: 0 }} />
+          {loadingMsg}
+        </div>
+      )}
 
       <div className="auth-tabs">
         <button className={`auth-tab ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')}>
@@ -116,7 +145,7 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
             />
           </div>
           <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-            {loading ? <span className="spinner" /> : '🔓 Login to Your Account'}
+            {loading ? <><span className="spinner" /> Signing in…</> : '🔓 Login to Your Account'}
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
             Don't have an account?{' '}
@@ -195,7 +224,7 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
             🎁 Start with a <strong style={{ color: 'var(--warn)' }}>7-day free trial</strong> — full access, no credit card required.
           </div>
           <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-            {loading ? <span className="spinner" /> : '🚀 Create Free Account'}
+            {loading ? <><span className="spinner" /> Creating account…</> : '🚀 Create Free Account'}
           </button>
           <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
             Already registered?{' '}

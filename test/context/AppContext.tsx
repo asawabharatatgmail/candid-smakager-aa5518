@@ -1269,13 +1269,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const doFetch = () => fetch(`${PYTHON_API}/api/external/parent/register`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
             });
-            let res: Response;
-            try {
-                res = await doFetch();
-            } catch {
-                await new Promise(r => setTimeout(r, 8000));
-                res = await doFetch();
+            // Retry up to 3 times with 15s gaps — covers Render's 30-60s cold start
+            let res: Response | undefined;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try { res = await doFetch(); break; }
+                catch { if (attempt < 2) await new Promise(r => setTimeout(r, 15000)); }
             }
+            if (!res) throw new Error('Server is starting up — please wait a moment and try again.');
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body.detail || 'Registration failed. Please try again.');
@@ -1310,14 +1310,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const doFetch = () => fetch(`${PYTHON_API}/api/external/student/register`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
             });
-            let res: Response;
-            try {
-                res = await doFetch();
-            } catch {
-                // Network error — backend likely cold-starting; wait 8s and retry once
-                await new Promise(r => setTimeout(r, 8000));
-                res = await doFetch();
+            // Retry up to 3 times with 15s gaps — covers Render's 30-60s cold start
+            let res: Response | undefined;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try { res = await doFetch(); break; }
+                catch { if (attempt < 2) await new Promise(r => setTimeout(r, 15000)); }
             }
+            if (!res) throw new Error('Server is starting up — please wait a moment and try again.');
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body.detail || 'Registration failed. Please try again.');

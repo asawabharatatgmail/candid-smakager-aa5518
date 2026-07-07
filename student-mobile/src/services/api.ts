@@ -32,13 +32,25 @@ function authHdr(): Record<string, string> {
     : { 'Content-Type': 'application/json' };
 }
 
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Retry up to 3 times with 15s gaps — covers Render's 30-60s cold start.
 async function safeFetch(input: string, init: RequestInit): Promise<Response> {
-  try {
-    return await fetch(input, init);
-  } catch {
-    await new Promise(r => setTimeout(r, 9000));
-    return fetch(input, init);
+  const attempts = 3;
+  const delayMs = 15000;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(input, init);
+      return res;
+    } catch {
+      if (i < attempts - 1) {
+        await wait(delayMs);
+      } else {
+        throw new Error('Server is starting up. Please wait a moment and try again.');
+      }
+    }
   }
+  throw new Error('Server unreachable');
 }
 
 async function post<T>(path: string, body: object, auth = false): Promise<T> {
