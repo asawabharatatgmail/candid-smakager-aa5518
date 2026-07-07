@@ -243,7 +243,8 @@ async def get_lead_summary(institute_id: Optional[str] = None, current_user: dic
 
 @router.post("/leads/email")
 async def generate_lead_email(req: LeadEmailRequest, current_user: dict = Depends(get_current_user)):
-    lead = supabase.table("leads").select("*").eq("id", req.lead_id).maybe_single().execute().data
+    _r = supabase.table("leads").select("*").eq("id", req.lead_id).limit(1).execute()
+    lead = _r.data[0] if _r.data else None
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     try:

@@ -25,7 +25,8 @@ async def list_challenges(institute_id: Optional[str] = None, current_user: dict
 
 @router.get("/challenges/{challenge_id}")
 async def get_challenge(challenge_id: str, current_user: dict = Depends(get_current_user)):
-    return supabase.table("game_challenges").select("*, game_levels(*)").eq("id", challenge_id).maybe_single().execute().data
+    _r = supabase.table("game_challenges").select("*, game_levels(*)").eq("id", challenge_id).limit(1).execute()
+    return _r.data[0] if _r.data else None
 
 
 @router.post("/submit", status_code=status.HTTP_201_CREATED)

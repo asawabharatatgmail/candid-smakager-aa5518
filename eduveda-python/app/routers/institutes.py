@@ -24,10 +24,10 @@ async def list_institutes(current_user: dict = Depends(get_current_user)):
 
 @router.get("/{institute_id}")
 async def get_institute(institute_id: str, current_user: dict = Depends(get_current_user)):
-    result = supabase.table("institutes").select("*").eq("id", institute_id).maybe_single().execute()
+    result = supabase.table("institutes").select("*").eq("id", institute_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Institute not found")
-    return result.data
+    return result.data[0]
 
 
 @router.put("/{institute_id}")

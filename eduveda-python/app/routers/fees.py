@@ -152,7 +152,8 @@ async def create_fee_profile(data: FeeProfileCreate, current_user: dict = Depend
 @router.post("/payment")
 async def record_payment(req: PaymentRequest, current_user: dict = Depends(get_current_user)):
     # Update installment
-    inst = supabase.table("student_installments").select("*").eq("id", req.installment_id).maybe_single().execute().data
+    _r = supabase.table("student_installments").select("*").eq("id", req.installment_id).limit(1).execute()
+    inst = _r.data[0] if _r.data else None
     if not inst:
         raise HTTPException(status_code=404, detail="Installment not found")
 

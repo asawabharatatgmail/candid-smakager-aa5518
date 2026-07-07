@@ -49,10 +49,10 @@ async def create_user(data: UserCreate, current_user: dict = Depends(get_current
 
 @router.get("/{user_id}")
 async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    result = supabase.table("users").select("id,name,email,mobile,role,status,branch_ids,institute_id").eq("id", user_id).maybe_single().execute()
+    result = supabase.table("users").select("id,name,email,mobile,role,status,branch_ids,institute_id").eq("id", user_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
-    return result.data
+    return result.data[0]
 
 
 @router.put("/{user_id}")
@@ -122,10 +122,10 @@ async def create_student(data: StudentCreate, current_user: dict = Depends(get_c
 
 @student_router.get("/{student_id}")
 async def get_student(student_id: str, current_user: dict = Depends(get_current_user)):
-    result = supabase.table("students").select("*").eq("id", student_id).maybe_single().execute()
+    result = supabase.table("students").select("*").eq("id", student_id).limit(1).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Student not found")
-    return {k: v for k, v in result.data.items() if k != "password_hash"}
+    return {k: v for k, v in result.data[0].items() if k != "password_hash"}
 
 
 @student_router.put("/{student_id}")
