@@ -9,7 +9,7 @@ import { GoogleGenAI } from '@google/genai';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://eduveda-api.onrender.com';
 
 function getSettings() {
   try {

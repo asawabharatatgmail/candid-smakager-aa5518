@@ -68,7 +68,7 @@ const LandingPage: React.FC = () => {
   useEffect(() => {
     setTimeout(() => setMounted(true), 60);
     // Silently wake Render backend so it is warm before the user opens the login form
-    const api = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const api = import.meta.env.VITE_API_URL || 'https://eduveda-api.onrender.com';
     fetch(`${api}/health`, { method: 'GET' }).catch(() => {});
     document.title = 'System4Learn — AI-Powered Education Management Platform';
     const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');

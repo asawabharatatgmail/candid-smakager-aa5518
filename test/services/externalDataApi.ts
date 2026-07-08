@@ -12,7 +12,7 @@
  * state as the fallback.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://eduveda-api.onrender.com';
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('eduveda_token');

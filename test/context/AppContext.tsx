@@ -8,7 +8,7 @@ import { apiCreateInstituteRecord, apiUpdateInstituteRecord, apiDeleteInstituteR
 import { apiListFeeStructures, apiCreateFeeStructure, apiDeleteFeeStructure, apiListDiscounts, apiCreateDiscount, apiDeleteDiscount, apiCreateLeadReminder, apiListEmailTemplates, apiCreateEmailTemplate, apiDeleteEmailTemplate, apiListFeeProfiles, apiCreateFeeProfile, apiRecordPayment } from '../services/feesLeadsApi';
 import { format, add } from 'date-fns';
 
-const PYTHON_API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const PYTHON_API = import.meta.env.VITE_API_URL || 'https://eduveda-api.onrender.com';
 
 // --- Cloud Storage Simulation ---
 // In a real application, these functions would interact with a cloud database.
