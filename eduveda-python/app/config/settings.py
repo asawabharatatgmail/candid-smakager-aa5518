@@ -30,6 +30,10 @@ class Settings(BaseSettings):
         "https://candid-smakager-aa5518.netlify.app",
         "http://localhost:3000",
         "http://localhost:5173",
+        # Capacitor Android WebView origins
+        "https://localhost",
+        "capacitor://localhost",
+        "http://localhost",
     ]
 
     @property

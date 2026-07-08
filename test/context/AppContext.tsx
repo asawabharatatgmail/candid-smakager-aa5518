@@ -1221,11 +1221,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const loginExternal = useCallback(async (email: string, password: string): Promise<'parent' | 'student' | false> => {
         try {
-            const res = await fetch(`${PYTHON_API}/api/external/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
+            const payload = JSON.stringify({ email, password });
+            const doFetch = () => fetch(`${PYTHON_API}/api/external/login`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload,
             });
+            let res: Response | undefined;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try { res = await doFetch(); break; }
+                catch { if (attempt < 2) await new Promise(r => setTimeout(r, 15000)); }
+            }
+            if (!res) return false;
             if (!res.ok) return false;
             const data = await res.json();
             localStorage.setItem('eduveda_token', data.access_token);
