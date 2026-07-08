@@ -221,6 +221,25 @@ const LoginPage: React.FC = () => {
   const [extShowPwd, setExtShowPwd] = useState(false);
   const [extError, setExtError]     = useState('');
   const [extLoading, setExtLoading] = useState(false);
+  const [extLoadingMsg, setExtLoadingMsg] = useState('');
+
+  // Cycle wake-up messages while extLoading is true
+  const EXT_WAKE_MSGS = [
+    '⏳ Connecting to server…',
+    '🔄 Server is waking up — this takes up to 60 s on first request…',
+    '☕ Still waiting… almost there…',
+    '✅ Nearly connected…',
+  ];
+  useEffect(() => {
+    if (!extLoading) { setExtLoadingMsg(''); return; }
+    let i = 0;
+    setExtLoadingMsg(EXT_WAKE_MSGS[0]);
+    const t = setInterval(() => {
+      i = Math.min(i + 1, EXT_WAKE_MSGS.length - 1);
+      setExtLoadingMsg(EXT_WAKE_MSGS[i]);
+    }, 15000);
+    return () => clearInterval(t);
+  }, [extLoading]);
 
   // Register extra
   const [regName, setRegName]       = useState('');
@@ -298,10 +317,11 @@ const LoginPage: React.FC = () => {
     try {
       await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
     } catch (e: any) {
-      const msg = e?.message || '';
-      setExtError(msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
-        ? 'Server is starting up — your request is being retried automatically. Please wait a moment…'
-        : msg || 'Registration failed. Please try again.');
+      const msg = (e?.message || '').toLowerCase();
+      const isNetwork = msg.includes('fetch') || msg.includes('network') || msg.includes('starting up');
+      setExtError(isNetwork
+        ? 'Could not reach the server. It may still be starting — please wait 30 seconds and try again.'
+        : e?.message || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -320,10 +340,11 @@ const LoginPage: React.FC = () => {
     try {
       await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
     } catch (e: any) {
-      const msg = e?.message || '';
-      setExtError(msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
-        ? 'Server is starting up — your request is being retried automatically. Please wait a moment…'
-        : msg || 'Registration failed. Please try again.');
+      const msg = (e?.message || '').toLowerCase();
+      const isNetwork = msg.includes('fetch') || msg.includes('network') || msg.includes('starting up');
+      setExtError(isNetwork
+        ? 'Could not reach the server. It may still be starting — please wait 30 seconds and try again.'
+        : e?.message || 'Registration failed. Please try again.');
     } finally {
       setExtLoading(false);
     }
@@ -609,6 +630,12 @@ const LoginPage: React.FC = () => {
                 <div className="space-y-3">
                   <TrialBadge color="indigo" />
                   {renderRegisterCommon(true)}
+                  {extLoading && extLoadingMsg && (
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2.5 text-xs text-indigo-700">
+                      <div className="w-3.5 h-3.5 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin flex-shrink-0" />
+                      {extLoadingMsg}
+                    </div>
+                  )}
                   {extError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{extError}</p>}
                   <button onClick={handleRegParent} disabled={extLoading}
                     className={`w-full py-3 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 ${extLoading ? 'opacity-70' : ''}`}>
@@ -680,6 +707,12 @@ const LoginPage: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  {extLoading && extLoadingMsg && (
+                    <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-xs text-violet-700">
+                      <div className="w-3.5 h-3.5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin flex-shrink-0" />
+                      {extLoadingMsg}
+                    </div>
+                  )}
                   {extError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{extError}</p>}
                   <button onClick={handleRegStudent} disabled={extLoading}
                     className={`w-full py-3 rounded-xl font-bold text-sm bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center gap-2 ${extLoading ? 'opacity-70' : ''}`}>
