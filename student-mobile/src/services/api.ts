@@ -85,6 +85,9 @@ export const api = {
 
   aiHelp: (question: string, subject?: string) =>
     post<AIResponse>('/api/external/student/ai-help', { question, subject }, true),
+
+  forgotPassword: (email: string) =>
+    post<{ message: string }>('/api/auth/forgot-password', { email }),
 };
 
 export function saveSession(resp: AuthResponse) {

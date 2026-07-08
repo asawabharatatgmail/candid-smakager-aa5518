@@ -6,7 +6,6 @@ interface Props {
   showToast: (msg: string, type?: 'error' | 'success') => void;
 }
 
-// Loading messages cycling during cold-start wait
 const WAKE_MSGS = [
   '⏳ Connecting to server…',
   '🔄 Server is waking up (free tier sleeps when idle)…',
@@ -14,8 +13,10 @@ const WAKE_MSGS = [
   '✅ Nearly ready…',
 ];
 
+type AuthTab = 'login' | 'register' | 'forgot';
+
 export default function AuthScreen({ onAuth, showToast }: Props) {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<AuthTab>('login');
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
 
@@ -30,12 +31,14 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
   const [rmobile, setRmobile] = useState('');
   const [rgrade, setRgrade] = useState('Class 10');
 
+  // Forgot password fields
+  const [femail, setFemail] = useState('');
+  const [forgotDone, setForgotDone] = useState(false);
+
   useEffect(() => {
-    // Warm up backend immediately so it's ready by the time user fills the form
     api.ping();
   }, []);
 
-  // Cycle through wake-up messages every 15s while loading
   useEffect(() => {
     if (!loading) { setLoadingMsg(''); return; }
     let i = 0;
@@ -83,6 +86,25 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
     }
   }
 
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!femail) { showToast('Please enter your email', 'error'); return; }
+    setLoading(true);
+    try {
+      await api.forgotPassword(femail.trim());
+    } catch { /* always show success to prevent email enumeration */ }
+    finally {
+      setLoading(false);
+      setForgotDone(true);
+    }
+  }
+
+  function goToForgot() {
+    setFemail(lemail); // pre-fill with login email if already typed
+    setForgotDone(false);
+    setTab('forgot');
+  }
+
   return (
     <div className="auth-screen">
       <div className="auth-hero">
@@ -90,7 +112,6 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
         <div className="auth-tagline">AI-Powered Student Learning Platform</div>
       </div>
 
-      {/* Cold-start banner — visible while any request is in flight */}
       {loading && loadingMsg && (
         <div style={{
           margin: '12px 20px 0',
@@ -110,16 +131,20 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
         </div>
       )}
 
-      <div className="auth-tabs">
-        <button className={`auth-tab ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')}>
-          Login
-        </button>
-        <button className={`auth-tab ${tab === 'register' ? 'active' : ''}`} onClick={() => setTab('register')}>
-          Register
-        </button>
-      </div>
+      {/* ── Tabs (only show Login / Register, not Forgot) ── */}
+      {tab !== 'forgot' && (
+        <div className="auth-tabs">
+          <button className={`auth-tab ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')}>
+            Login
+          </button>
+          <button className={`auth-tab ${tab === 'register' ? 'active' : ''}`} onClick={() => setTab('register')}>
+            Register
+          </button>
+        </div>
+      )}
 
-      {tab === 'login' ? (
+      {/* ── Login ── */}
+      {tab === 'login' && (
         <form className="auth-form" onSubmit={handleLogin}>
           <div>
             <label className="field-label">Email Address</label>
@@ -134,7 +159,15 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
             />
           </div>
           <div>
-            <label className="field-label">Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label className="field-label" style={{ margin: 0 }}>Password</label>
+              <span
+                style={{ color: 'var(--primary-l)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                onClick={goToForgot}
+              >
+                Forgot password?
+              </span>
+            </div>
             <input
               className="field-input"
               type="password"
@@ -157,7 +190,10 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
             </span>
           </p>
         </form>
-      ) : (
+      )}
+
+      {/* ── Register ── */}
+      {tab === 'register' && (
         <form className="auth-form" onSubmit={handleRegister}>
           <div>
             <label className="field-label">Full Name</label>
@@ -236,6 +272,86 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
             </span>
           </p>
         </form>
+      )}
+
+      {/* ── Forgot Password ── */}
+      {tab === 'forgot' && (
+        <div className="auth-form">
+          {/* Back button */}
+          <button
+            style={{
+              background: 'none', border: 'none', color: 'var(--primary-l)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8,
+            }}
+            onClick={() => setTab('login')}
+          >
+            ← Back to Login
+          </button>
+
+          {forgotDone ? (
+            /* Success state */
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>✉️</div>
+              <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-1)', marginBottom: 8 }}>
+                Check your email
+              </p>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 20 }}>
+                If an account with <strong>{femail}</strong> exists, a reset link has been sent. It expires in 1 hour.
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                Didn't receive it? Check your spam folder or{' '}
+                <span
+                  style={{ color: 'var(--primary-l)', cursor: 'pointer', fontWeight: 600 }}
+                  onClick={() => setForgotDone(false)}
+                >
+                  try again
+                </span>.
+              </p>
+              <button
+                className="btn btn-primary btn-full"
+                style={{ marginTop: 20 }}
+                onClick={() => setTab('login')}
+              >
+                Back to Login
+              </button>
+            </div>
+          ) : (
+            /* Request form */
+            <form onSubmit={handleForgot}>
+              <div style={{
+                padding: '14px 16px',
+                background: 'rgba(124,58,237,0.08)',
+                border: '1px solid rgba(124,58,237,0.2)',
+                borderRadius: 12,
+                marginBottom: 16,
+              }}>
+                <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)', marginBottom: 4 }}>
+                  🔑 Reset your password
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                  Enter your registered email and we'll send you a link to set a new password.
+                </p>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label className="field-label">Email Address</label>
+                <input
+                  className="field-input"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={femail}
+                  onChange={e => setFemail(e.target.value)}
+                  required
+                />
+              </div>
+              <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
+                {loading ? <><span className="spinner" /> Sending…</> : '📧 Send Reset Link'}
+              </button>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );
