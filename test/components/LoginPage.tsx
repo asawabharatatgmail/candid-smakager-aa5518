@@ -61,6 +61,14 @@ function validateCity(v: string): string {
   if (!/^[A-Za-z\s.\-']+$/.test(v.trim())) return 'Letters and spaces only.';
   return '';
 }
+function validatePassword(v: string): string {
+  if (v.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(v)) return 'Password must contain at least one uppercase letter (A-Z).';
+  if (!/[a-z]/.test(v)) return 'Password must contain at least one lowercase letter (a-z).';
+  if (!/\d/.test(v)) return 'Password must contain at least one digit (0-9).';
+  if (!/[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(v)) return 'Password must contain at least one special character (e.g. !@#$%).';
+  return '';
+}
 
 // ── Inline field error ─────────────────────────────────────────────────────────
 
@@ -312,7 +320,8 @@ const LoginPage: React.FC = () => {
     const cityErr = validateCity(regCity);
     setTouched({ name: true, email: true, mobile: true, city: true });
     if (nameErr || emailErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
-    if (!extPwd) { setExtError('Password is required.'); return; }
+    const pwdErr = validatePassword(extPwd);
+    if (pwdErr) { setExtError(pwdErr); return; }
     setExtError(''); setExtLoading(true);
     try {
       await registerExternalParent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, city: regCity });
@@ -335,7 +344,8 @@ const LoginPage: React.FC = () => {
     const cityErr = validateCity(regCity);
     setTouched({ name: true, email: true, mobile: true, city: true });
     if (nameErr || emailErr || mobileErr || cityErr) { setExtError('Please fix the highlighted fields.'); return; }
-    if (!extPwd) { setExtError('Password is required.'); return; }
+    const pwdErr = validatePassword(extPwd);
+    if (pwdErr) { setExtError(pwdErr); return; }
     setExtError(''); setExtLoading(true);
     try {
       await registerExternalStudent({ name: regName, email: extEmail, password: extPwd, mobile: regMobile, grade: regGrade, age: parseInt(regAge) || 15, subjectsOfInterest: regSubjects, schoolName: regSchool, city: regCity });
@@ -384,6 +394,7 @@ const LoginPage: React.FC = () => {
           <input type="password" value={extPwd} onChange={e => setExtPwd(e.target.value)} placeholder="Create password"
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-400" />
           <PasswordStrengthBar password={extPwd} />
+          <p className="text-xs text-slate-400 mt-0.5">Must have 8+ chars · uppercase · lowercase · number · special char (!@#$%)</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -496,9 +507,9 @@ const LoginPage: React.FC = () => {
             </button>
           ))}
           <div className="border-t border-white/10 pt-2 mt-1 space-y-1 text-xs">
-            <p className="text-indigo-300 font-semibold">External Demos:</p>
-            <p className="text-indigo-200">👨‍👩‍👧 sunita@external.com / parent123</p>
-            <p className="text-indigo-200">🎓 prateek@external.com / student123</p>
+            <p className="text-indigo-300 font-semibold">External Demos (login only):</p>
+            <p className="text-indigo-200">👨‍👩‍👧 sunita@external.com / Parent@123</p>
+            <p className="text-indigo-200">🎓 prateek@external.com / Student@123</p>
           </div>
         </div>
       </div>
@@ -624,7 +635,7 @@ const LoginPage: React.FC = () => {
               {extMode === 'login' ? (
                 <>
                   {renderExtLoginForm('parent', 'indigo')}
-                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / parent123</p>}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / Parent@123</p>}
                 </>
               ) : (
                 <div className="space-y-3">
@@ -671,7 +682,7 @@ const LoginPage: React.FC = () => {
               {extMode === 'login' ? (
                 <>
                   {renderExtLoginForm('student', 'violet')}
-                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / student123</p>}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / Student@123</p>}
                 </>
               ) : (
                 <div className="space-y-3">

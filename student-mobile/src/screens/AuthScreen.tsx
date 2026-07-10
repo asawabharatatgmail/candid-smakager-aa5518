@@ -13,6 +13,15 @@ const WAKE_MSGS = [
   '✅ Nearly ready…',
 ];
 
+function validatePassword(pw: string): string {
+  if (pw.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(pw)) return 'Must contain an uppercase letter (A-Z).';
+  if (!/[a-z]/.test(pw)) return 'Must contain a lowercase letter (a-z).';
+  if (!/\d/.test(pw)) return 'Must contain a digit (0-9).';
+  if (!/[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(pw)) return 'Must contain a special character (e.g. !@#$%).';
+  return '';
+}
+
 type AuthTab = 'login' | 'register' | 'forgot';
 
 export default function AuthScreen({ onAuth, showToast }: Props) {
@@ -72,7 +81,8 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
       showToast('Please fill in name, email and password', 'error');
       return;
     }
-    if (rpass.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
+    const pwdErr = validatePassword(rpass);
+    if (pwdErr) { showToast(pwdErr, 'error'); return; }
     setLoading(true);
     try {
       const resp = await api.register(rname.trim(), remail.trim(), rpass, rmobile.trim(), rgrade);
@@ -251,7 +261,7 @@ export default function AuthScreen({ onAuth, showToast }: Props) {
               className="field-input"
               type="password"
               autoComplete="new-password"
-              placeholder="Min 8 characters"
+              placeholder="Min 8 chars, uppercase, digit, symbol"
               value={rpass}
               onChange={e => setRpass(e.target.value)}
             />
