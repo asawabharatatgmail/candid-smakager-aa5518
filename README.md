@@ -1,6 +1,6 @@
 # EduVeda — Smart Academic Administration & Analytics
 
-An all-in-one platform for educational institutes integrating AI-powered tools for administration, e-learning, and analytics.
+An all-in-one platform for educational institutes integrating AI-powered tools for administration, e-learning, and analytics. 
 
 ---
 
