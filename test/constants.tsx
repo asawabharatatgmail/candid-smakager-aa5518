@@ -198,7 +198,7 @@ export const NAV_LINKS: Record<UserRole, NavLink[]> = {
     { label: 'AI Suggestions',   key: 'ai-suggestions',       icon: LightbulbIcon },
     { label: 'My Subscription',  key: 'student-subscription', icon: WalletIcon },
     { label: 'AI Config',        key: 'personal-ai-config',   icon: KeyIcon },
-    { label: 'My Profile',       key: 'ext-account',          icon: UsersIcon },
+    { label: 'My Profile',       key: 'ext-student-profile',  icon: UsersIcon },
   ],
   [UserRole.ProductOwner]: [
     { label: 'Dashboard', key: 'dashboard', icon: HomeIcon },

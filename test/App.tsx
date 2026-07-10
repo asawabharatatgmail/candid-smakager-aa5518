@@ -86,6 +86,7 @@ import ExtStudentProgressView from './components/views/ExtStudentProgressView';
 import StudentSubscriptionView from './components/views/StudentSubscriptionView';
 import StudentPlansView from './components/views/StudentPlansView';
 import LaunchControlView from './components/views/LaunchControlView';
+import ExternalStudentProfileView from './components/views/ExternalStudentProfileView';
 
 
 const dashboardMap: Record<UserRole, React.FC> = {
@@ -173,6 +174,7 @@ const viewMap: Record<string, React.ReactElement> = {
     'public-library':      <PublicLibraryView />,
     'ext-progress':        <ExtStudentProgressView />,
     'student-subscription':<StudentSubscriptionView />,
+    'ext-student-profile':  <ExternalStudentProfileView />,
 };
 
 const MainContent: React.FC = () => {
