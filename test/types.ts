@@ -648,6 +648,7 @@ export interface ManagementField {
 export interface ManagementConfig {
   [key: string]: {
     label: string;
+    singular?: string;
     fields: ManagementField[];
     columns: { header: string; accessor: keyof any; render?: (item: any, context: any) => React.ReactNode }[];
     csvTemplate: string;

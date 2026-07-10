@@ -508,8 +508,8 @@ const LoginPage: React.FC = () => {
           ))}
           <div className="border-t border-white/10 pt-2 mt-1 space-y-1 text-xs">
             <p className="text-indigo-300 font-semibold">External Demos (login only):</p>
-            <p className="text-indigo-200">👨‍👩‍👧 sunita@external.com / Parent@123</p>
-            <p className="text-indigo-200">🎓 prateek@external.com / Student@123</p>
+            <p className="text-indigo-200">👨‍👩‍👧 sunita@external.com / Parent@123!</p>
+            <p className="text-indigo-200">🎓 prateek@external.com / Student@123!</p>
           </div>
         </div>
       </div>
@@ -635,7 +635,7 @@ const LoginPage: React.FC = () => {
               {extMode === 'login' ? (
                 <>
                   {renderExtLoginForm('parent', 'indigo')}
-                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / Parent@123</p>}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: sunita@external.com / Parent@123!</p>}
                 </>
               ) : (
                 <div className="space-y-3">
@@ -682,7 +682,7 @@ const LoginPage: React.FC = () => {
               {extMode === 'login' ? (
                 <>
                   {renderExtLoginForm('student', 'violet')}
-                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / Student@123</p>}
+                  {!showForgotExt && <p className="text-xs text-center text-slate-400">Demo: prateek@external.com / Student@123!</p>}
                 </>
               ) : (
                 <div className="space-y-3">

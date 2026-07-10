@@ -81,7 +81,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({ category, renderActions
             onClick={() => setAddModalOpen(true)}
             className="btn-primary"
           >
-            <i className="ri-add-line mr-1" /> Add {config.label.slice(0, -1)}
+            <i className="ri-add-line mr-1" /> Add {config.singular ?? config.label.slice(0, -1)}
           </button>
         </div>
       )}
@@ -196,7 +196,7 @@ const ManagementView: React.FC<ManagementViewProps> = ({ category, renderActions
       )}
       {deleteTarget && (
         <ConfirmDeleteModal
-          categoryLabel={config.label.slice(0, -1)}
+          categoryLabel={config.singular ?? config.label.slice(0, -1)}
           itemName={deleteTarget.name}
           onClose={() => setDeleteTarget(null)}
           onConfirm={() => { deleteRecord(category, deleteTarget.id); setDeleteTarget(null); }}

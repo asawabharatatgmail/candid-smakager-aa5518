@@ -336,6 +336,7 @@ export const MANAGEMENT_CONFIG: ManagementConfig = {
   },
   branches: {
     label: 'Branches',
+    singular: 'Branch',
     fields: [
       { name: 'name', label: 'Branch Name', type: 'text', required: true },
       { name: 'location', label: 'Location', type: 'text' },
@@ -406,6 +407,7 @@ export const MANAGEMENT_CONFIG: ManagementConfig = {
   },
   classes: {
     label: 'Classes',
+    singular: 'Class',
     fields: [
       { name: 'name', label: 'Class Name', type: 'text', required: true },
       { name: 'teacherIds', label: 'Assign Teachers', type: 'multiselect', optionsFromContext: 'teachers' },
