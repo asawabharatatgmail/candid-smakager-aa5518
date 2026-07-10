@@ -1,3 +1,6 @@
+# Netlify local state (contains machine-specific absolute paths — never commit)
+.netlify/
+
 # Logs
 logs
 *.log
